@@ -38,6 +38,11 @@ from jarvis.tools.file_organization_tools import (
     DetectDuplicatesTool,
     BatchOrganizeFilesTool,
 )
+from jarvis.tools.service_tools import (
+    FreePortTool,
+    VerifyEndpointTool,
+    StartBackendServiceTool,
+)
 from jarvis.tools.web_tools import BrowserSearchTool
 
 
@@ -69,6 +74,10 @@ def get_default_registry() -> ToolRegistry:
     registry.register(InspectDirectoryTool())
     registry.register(DetectDuplicatesTool())
     registry.register(BatchOrganizeFilesTool())
+    # Service Execution & Recovery
+    registry.register(FreePortTool())
+    registry.register(VerifyEndpointTool())
+    registry.register(StartBackendServiceTool())
     # Web
     registry.register(BrowserSearchTool())
     return registry

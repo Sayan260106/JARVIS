@@ -14,6 +14,8 @@ data/test_*
 data/*.db
 artifacts/
 *.log
+.env
+*.env
 
 # IDE & Editor files
 .vscode/*
