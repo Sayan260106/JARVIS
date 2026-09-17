@@ -23,7 +23,7 @@ class TestLocalBrain(unittest.TestCase):
     def setUpClass(cls):
         cls.db_path = "data/test_jarvis_memory.db"
         cls.memory = ConversationMemory(db_path=cls.db_path)
-        cls.ollama = OllamaClient(model="qwen2.5:3b")
+        cls.ollama = OllamaClient(model="qwen2.5:3b", timeout=180.0)
         # Disable audio device playback during unit test execution
         cls.tts = LocalTTS(enabled=False)
 

@@ -45,6 +45,20 @@ from jarvis.tools.service_tools import (
 )
 from jarvis.tools.web_tools import BrowserSearchTool
 from jarvis.tools.web_intelligence_tool import ResearchTopicTool
+from jarvis.tools.browser_tools import (
+    BrowserOpenTool,
+    BrowserNewTabTool,
+    BrowserSearchPageTool,
+    BrowserNavigateTool,
+    BrowserClickTool,
+    BrowserTypeTool,
+    BrowserScrollTool,
+    BrowserExtractTool,
+    BrowserScreenshotTool,
+    BrowserBackTool,
+    BrowserCloseTabTool,
+    BrowserDownloadTool,
+)
 
 
 def get_default_registry() -> ToolRegistry:
@@ -82,6 +96,19 @@ def get_default_registry() -> ToolRegistry:
     # Web & Auxiliary Cloud Intelligence
     registry.register(BrowserSearchTool())
     registry.register(ResearchTopicTool())
+    # Playwright Browser Automation (Edge / Chromium)
+    registry.register(BrowserOpenTool())
+    registry.register(BrowserNewTabTool())
+    registry.register(BrowserSearchPageTool())
+    registry.register(BrowserNavigateTool())
+    registry.register(BrowserClickTool())
+    registry.register(BrowserTypeTool())
+    registry.register(BrowserScrollTool())
+    registry.register(BrowserExtractTool())
+    registry.register(BrowserScreenshotTool())
+    registry.register(BrowserBackTool())
+    registry.register(BrowserCloseTabTool())
+    registry.register(BrowserDownloadTool())
     return registry
 
 

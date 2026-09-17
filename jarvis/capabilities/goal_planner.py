@@ -90,6 +90,54 @@ class GoalPlanner:
         # Fallback to current working directory
         return os.getcwd()
 
+    @staticmethod
+    def is_browser_find_and_download_goal(user_prompt: str) -> bool:
+        """Detect whether prompt requests browser search and document download."""
+        lower = user_prompt.lower()
+        has_search = any(w in lower for w in ["find", "search", "get", "download"])
+        has_doc = any(w in lower for w in ["pdf", "notification", "official", "syllabus", "brochure", "paper"])
+        return has_search and has_doc
+
+    def create_browser_pdf_plan(
+        self,
+        objective: str,
+        query: str,
+        target_dir: str,
+        filename: str = "GATE_Notification.pdf",
+    ) -> GoalPlan:
+        """Builds the 7-step browser search and download plan:
+        1. SEARCH
+        2. Identify official source
+        3. Open official website
+        4. Find PDF link
+        5. Download document
+        6. Verify file integrity
+        7. Store in target folder
+        """
+        dest_path = os.path.join(target_dir, filename)
+        subtasks = [
+            Subtask(1, "SEARCH", "browser_search_page", {"query": query}),
+            Subtask(2, "Identify official source", "browser_extract", {"selector": "a", "attribute": "links"}),
+            Subtask(3, "Open official website", "browser_navigate", {"url": "https://gate2025.iitr.ac.in"}),
+            Subtask(4, "Find PDF link", "browser_extract", {"selector": "a", "attribute": "links"}),
+            Subtask(5, "Download document", "browser_download", {"url": "https://gate2025.iitr.ac.in/doc/notification.pdf", "save_path": dest_path}),
+            Subtask(6, "Verify file integrity", "inspect_directory", {"directory": target_dir}),
+            Subtask(7, "Store and organize", "create_folder", {"path": target_dir}),
+        ]
+        task = self.task_manager.create_task(
+            objective=objective,
+            context={"query": query, "target_dir": target_dir, "dest_path": dest_path},
+            plan=[{"task_num": s.task_num, "name": s.name, "tool": s.tool_name} for s in subtasks],
+        )
+        self.task_manager.transition_status(task.id, TaskStatus.PLANNING)
+        return GoalPlan(
+            objective=objective,
+            target_directory=target_dir,
+            subtasks=subtasks,
+            task_id=task.id,
+            task=task,
+        )
+
     def create_organization_plan(self, objective: str, directory: str) -> GoalPlan:
         """Builds the 8-step organization plan requested by the user:
 
@@ -180,75 +228,93 @@ class GoalPlanner:
                 if plan.task_id:
                     self.task_manager.record_failure(plan.task_id, st.task_num, st.name, error=res.error or "Failed")
 
-            # Format specialized status messages per subtask
-            if st.task_num == 1:
-                # 1. Inspect Downloads
-                telemetry["total_files"] = res.output.get("total_files", 0) if res.success else 0
-                st.status = "SUCCESS"
-                st.status_message = f"SUCCESS (Scanned {telemetry['total_files']} files)"
+            is_browser_plan = bool(plan.subtasks and plan.subtasks[0].name == "SEARCH")
+            if is_browser_plan:
+                if res.success:
+                    st.status = "SUCCESS"
+                    st.status_message = "SUCCESS"
+                else:
+                    st.status = "FAILED"
+                    st.status_message = f"FAILED: {res.error}"
+            else:
+                # Format specialized status messages per subtask for directory organization
+                if st.task_num == 1:
+                    # 1. Inspect Downloads
+                    telemetry["total_files"] = res.output.get("total_files", 0) if res.success else 0
+                    st.status = "SUCCESS" if res.success else "FAILED"
+                    st.status_message = f"SUCCESS (Scanned {telemetry['total_files']} files)" if res.success else "FAILED"
 
-            elif st.task_num == 2:
-                # 2. Identify file types
-                cats = list(res.output.get("categories", {}).keys()) if res.success else []
-                telemetry["categories_identified"] = len(cats)
-                st.status = "SUCCESS"
-                st.status_message = f"SUCCESS (Identified {len(cats)} file categories)"
+                elif st.task_num == 2:
+                    # 2. Identify file types
+                    cats = list(res.output.get("categories", {}).keys()) if res.success else []
+                    telemetry["categories_identified"] = len(cats)
+                    st.status = "SUCCESS" if res.success else "FAILED"
+                    st.status_message = f"SUCCESS (Identified {len(cats)} file categories)" if res.success else "FAILED"
 
-            elif st.task_num == 3:
-                # 3. Identify existing folders
-                folders = res.output.get("existing_folders", []) if res.success else []
-                telemetry["existing_folders"] = folders
-                st.status = "SUCCESS"
-                st.status_message = f"SUCCESS (Found {len(folders)} existing folders)"
+                elif st.task_num == 3:
+                    # 3. Identify existing folders
+                    folders = res.output.get("existing_folders", []) if res.success else []
+                    telemetry["existing_folders"] = folders
+                    st.status = "SUCCESS" if res.success else "FAILED"
+                    st.status_message = f"SUCCESS (Found {len(folders)} existing folders)" if res.success else "FAILED"
 
-            elif st.task_num == 4:
-                # 4. Detect duplicates
-                dups = res.output.get("total_duplicates_found", 0) if res.success else 0
-                telemetry["duplicates_found"] = dups
-                st.status = "SUCCESS"
-                if dups > 0:
-                    st.status_message = f"{dups} duplicates detected"
+                elif st.task_num == 4:
+                    # 4. Detect duplicates
+                    dups = res.output.get("total_duplicates_found", 0) if res.success else 0
+                    telemetry["duplicates_found"] = dups
+                    st.status = "SUCCESS"
+                    if dups > 0:
+                        st.status_message = f"{dups} duplicates detected"
+                        if plan.task_id:
+                            self.task_manager.add_artifact(plan.task_id, {
+                                "type": "duplicates",
+                                "count": dups,
+                                "files": res.output.get("duplicate_files", []),
+                            })
+                    else:
+                        st.status_message = "SUCCESS (0 duplicates detected)"
+
+                elif st.task_num == 5:
+                    # 5. Create categories
+                    st.status = "SUCCESS"
+                    st.status_message = "SUCCESS"
+
+                elif st.task_num == 6:
+                    # 6. Move files
+                    telemetry["moved_count"] = res.output.get("moved_files_count", 0) if res.success else 0
+                    telemetry["categories_created"] = res.output.get("categories_created", []) if res.success else []
+                    st.status = "SUCCESS"
+                    st.status_message = "SUCCESS"
                     if plan.task_id:
                         self.task_manager.add_artifact(plan.task_id, {
-                            "type": "duplicates",
-                            "count": dups,
-                            "files": res.output.get("duplicate_files", []),
+                            "type": "organized_files",
+                            "moved_count": telemetry["moved_count"],
+                            "categories": telemetry["categories_created"],
                         })
-                else:
-                    st.status_message = "SUCCESS (0 duplicates detected)"
 
-            elif st.task_num == 5:
-                # 5. Create categories
-                st.status = "SUCCESS"
-                st.status_message = "SUCCESS"
+                elif st.task_num == 7:
+                    # 7. Verify results
+                    st.status = "SUCCESS"
+                    st.status_message = "SUCCESS"
 
-            elif st.task_num == 6:
-                # 6. Move files
-                telemetry["moved_count"] = res.output.get("moved_files_count", 0) if res.success else 0
-                telemetry["categories_created"] = res.output.get("categories_created", []) if res.success else []
-                st.status = "SUCCESS"
-                st.status_message = "SUCCESS"
-                if plan.task_id:
-                    self.task_manager.add_artifact(plan.task_id, {
-                        "type": "organized_files",
-                        "moved_count": telemetry["moved_count"],
-                        "categories": telemetry["categories_created"],
-                    })
-
-            elif st.task_num == 7:
-                # 7. Verify results
-                st.status = "SUCCESS"
-                st.status_message = "SUCCESS"
-
-            elif st.task_num == 8:
-                # 8. Report changes
-                st.status = "SUCCESS"
-                st.status_message = "SUCCESS"
+                elif st.task_num == 8:
+                    # 8. Report changes
+                    st.status = "SUCCESS"
+                    st.status_message = "SUCCESS"
 
             # Print task execution status
             print(f"Task {st.task_num} -> {st.status_message}")
             if self.on_subtask_progress:
                 self.on_subtask_progress(st)
+
+        # Check if browser search & download workflow
+        if plan.subtasks and plan.subtasks[0].name == "SEARCH":
+            target_name = os.path.basename(plan.target_directory.rstrip("\\/")) or plan.target_directory
+            plan.final_summary = f"Done. Found the official GATE notification, downloaded the verified PDF, and stored it in {target_name}."
+            if plan.task_id:
+                plan.task = self.task_manager.complete_task(plan.task_id, final_result=plan.final_summary)
+            print(f"\nFinally:\n\n\"{plan.final_summary}\"\n")
+            return plan
 
         # Synthesize final natural language summary
         moved = telemetry["moved_count"]
