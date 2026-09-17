@@ -98,6 +98,30 @@ class GoalPlanner:
         has_doc = any(w in lower for w in ["pdf", "notification", "official", "syllabus", "brochure", "paper"])
         return has_search and has_doc
 
+    @staticmethod
+    def is_complex_project_goal(user_prompt: str) -> bool:
+        """Detect whether prompt requests complex project setup/presentation preparation."""
+        lower = user_prompt.lower()
+        has_prep = any(w in lower for w in ["presentation", "prepare", "ready", "demo"])
+        has_proj = any(w in lower for w in ["orca", "project", "frontend", "backend", "full stack"])
+        return has_prep and has_proj
+
+    def execute_complex_project_workflow(self, user_prompt: str, project_name: str = "ORCA-X") -> Dict[str, Any]:
+        """Runs the 11-step DAG workflow via ComplexTaskEngine."""
+        from jarvis.orchestrator.engine import ComplexTaskEngine
+        from jarvis.orchestrator.workflows import PresentationPrepWorkflow
+
+        engine = ComplexTaskEngine(task_manager=self.task_manager)
+        dag = PresentationPrepWorkflow.build_dag(project_name=project_name)
+        report = engine.execute_dag(dag, objective=user_prompt, print_tree=True)
+        return {
+            "overall_status": report.overall_status,
+            "total_nodes": report.total_nodes,
+            "completed_nodes": report.completed_nodes,
+            "summary": report.summary_text,
+            "issues": report.issues,
+        }
+
     def create_browser_pdf_plan(
         self,
         objective: str,

@@ -5,6 +5,7 @@ Microphone / STT -> Wake-Word Gate -> Ollama -> SQLite Memory -> Response -> TTS
 """
 
 from __future__ import annotations
+from typing import Any
 import re
 from typing import Optional, List, Dict
 from jarvis.subsystems.local.ollama_client import OllamaClient

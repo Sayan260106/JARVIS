@@ -37,9 +37,11 @@ class UnifiedMemoryManager:
 
         # 1. Search Preferences
         prefs = self.episodic.get_preferences()
-        q_lower = query.lower()
+        import re
+        tokens = [t.lower() for t in re.findall(r"[a-zA-Z0-9]+", query) if len(t) > 2]
         for k, v in prefs.items():
-            if k.lower() in q_lower or any(token in f"{k} {v}".lower() for token in q_lower.split()):
+            kv_lower = f"{k} {v}".lower()
+            if any(t in kv_lower for t in tokens) or k.lower() in query.lower():
                 results.append(
                     MemorySearchResult(
                         memory_type=MemoryTier.EPISODIC,

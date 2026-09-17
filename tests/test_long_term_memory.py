@@ -151,6 +151,8 @@ class TestLongTermMemory(unittest.TestCase):
 
     def test_unified_memory_facade_and_context(self):
         """Verify cross-tier retrieval and LLM context synthesis."""
+        self.memory_mgr.remember_fact("target_exam", "GATE 2027 CSE")
+        self.memory_mgr.store_knowledge("B-Trees and B+ Trees Indexing", "B-trees are balanced search trees.", tags=["gate", "database"])
         # Query matching both preferences and knowledge
         results = self.memory_mgr.search_all("GATE database", limit=5)
         self.assertGreater(len(results), 0)

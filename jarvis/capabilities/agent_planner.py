@@ -165,6 +165,16 @@ class AgentToolExecutor:
                 final_response=executed_plan.final_summary,
             )
 
+        if GoalPlanner.is_complex_project_goal(user_prompt):
+            planner = GoalPlanner(registry=self.registry, tool_executor=self)
+            outcome = planner.execute_complex_project_workflow(user_prompt)
+            return AgentTurnResult(
+                tool_called=True,
+                tool_name="run_complex_task",
+                arguments={"workflow": "presentation_prep"},
+                final_response=outcome["summary"],
+            )
+
         history = list(conversation_history or [])
         history.append({"role": "user", "content": user_prompt})
 

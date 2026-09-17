@@ -72,6 +72,7 @@ from jarvis.tools.memory_tools import (
     SearchKnowledgeTool,
     ManageWorkingMemoryTool,
 )
+from jarvis.tools.orchestration_tools import RunComplexTaskTool
 
 
 def get_default_registry() -> ToolRegistry:
@@ -131,6 +132,7 @@ def get_default_registry() -> ToolRegistry:
     registry.register(StoreKnowledgeTool())
     registry.register(SearchKnowledgeTool())
     registry.register(ManageWorkingMemoryTool())
+    registry.register(RunComplexTaskTool())
     return registry
 
 
@@ -174,5 +176,6 @@ __all__ = [
     "StoreKnowledgeTool",
     "SearchKnowledgeTool",
     "ManageWorkingMemoryTool",
+    "RunComplexTaskTool",
     "get_default_registry",
 ]
