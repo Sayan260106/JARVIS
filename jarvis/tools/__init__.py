@@ -65,6 +65,13 @@ from jarvis.tools.vision_tools import (
     LocateUIElementTool,
     ClickScreenElementTool,
 )
+from jarvis.tools.memory_tools import (
+    RememberFactTool,
+    RecallMemoryTool,
+    StoreKnowledgeTool,
+    SearchKnowledgeTool,
+    ManageWorkingMemoryTool,
+)
 
 
 def get_default_registry() -> ToolRegistry:
@@ -119,6 +126,11 @@ def get_default_registry() -> ToolRegistry:
     registry.register(InspectScreenTool())
     registry.register(LocateUIElementTool())
     registry.register(ClickScreenElementTool())
+    registry.register(RememberFactTool())
+    registry.register(RecallMemoryTool())
+    registry.register(StoreKnowledgeTool())
+    registry.register(SearchKnowledgeTool())
+    registry.register(ManageWorkingMemoryTool())
     return registry
 
 
@@ -157,5 +169,10 @@ __all__ = [
     "InspectScreenTool",
     "LocateUIElementTool",
     "ClickScreenElementTool",
+    "RememberFactTool",
+    "RecallMemoryTool",
+    "StoreKnowledgeTool",
+    "SearchKnowledgeTool",
+    "ManageWorkingMemoryTool",
     "get_default_registry",
 ]

@@ -31,6 +31,7 @@ class ConversationEngine:
         session_id: Optional[str] = None,
         speak_output: bool = True,
         enable_tools: bool = True,
+        unified_memory: Optional[Any] = None,
     ):
         self.ollama = ollama_client or OllamaClient()
         self.memory = memory or ConversationMemory()
@@ -40,6 +41,7 @@ class ConversationEngine:
         self.tool_executor = tool_executor or (
             AgentToolExecutor(ollama_client=self.ollama) if enable_tools else None
         )
+        self.unified_memory = unified_memory
         self.session_id = session_id or self.memory.get_latest_session_id()
         self.is_active = False
 
@@ -81,12 +83,18 @@ class ConversationEngine:
         # Retrieve prior conversational history from SQLite
         history = self.memory.get_history(self.session_id, limit=8)
 
+        # Retrieve relevant long-term memory context (preferences, knowledge, episodes)
+        mem_context = self.unified_memory.get_relevant_context(query) if self.unified_memory else ""
+        augmented_history = list(history)
+        if mem_context:
+            augmented_history.insert(0, {"role": "system", "content": f"Context from Long-Term Memory:\n{mem_context}"})
+
         if self.enable_tools and self.tool_executor:
-            turn_result = self.tool_executor.run_turn(query, history)
+            turn_result = self.tool_executor.run_turn(query, augmented_history)
             response = turn_result.final_response
         else:
             # Direct chat fallback
-            messages: List[Dict[str, str]] = list(history)
+            messages: List[Dict[str, str]] = list(augmented_history)
             messages.append({"role": "user", "content": query})
             response = self.ollama.chat(messages)
 
