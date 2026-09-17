@@ -62,34 +62,27 @@ class OpenFileTool(BaseTool):
 class OpenApplicationTool(BaseTool):
     """Launches an executable or application on Windows."""
     name = "open_application"
-    description = "Launches an application by name or executable path (e.g. 'notepad', 'calc', 'code', 'mspaint')."
+    description = "Launches an application by name (e.g. 'Edge', 'VS Code', 'Spotify', 'Notepad', 'Calculator')."
     risk_level = RiskLevel.MEDIUM
     parameters = {
-        "app_name": ToolParameter("app_name", "string", "Name of application or executable command.", required=True),
+        "app_name": ToolParameter("app_name", "string", "Name or alias of application to open.", required=True),
     }
 
     def execute(self, app_name: str, **kwargs) -> ToolResult:
         start_t = time.perf_counter()
-        try:
-            # Launch detached process on Windows
-            proc = subprocess.Popen(app_name, shell=True)
-            return ToolResult(
-                success=True,
-                output={"app_name": app_name, "pid": proc.pid},
-                duration_ms=(time.perf_counter() - start_t) * 1000,
-            )
-        except Exception as e:
-            return ToolResult(
-                success=False,
-                output=None,
-                error=str(e),
-                duration_ms=(time.perf_counter() - start_t) * 1000,
-            )
+        from jarvis.subsystems.system.app_launcher import WindowsAppLauncher
+        success, msg, pid = WindowsAppLauncher.launch(app_name)
+        return ToolResult(
+            success=success,
+            output={"app_name": app_name, "message": msg, "pid": pid},
+            error=None if success else msg,
+            duration_ms=(time.perf_counter() - start_t) * 1000,
+        )
 
     def verify(self, arguments: Dict[str, Any], result: ToolResult) -> ToolVerification:
         if not result.success:
             return ToolVerification(verified=False, details=f"Failed to start application: {result.error}")
-        return ToolVerification(verified=True, details=f"Application '{arguments['app_name']}' launched successfully.")
+        return ToolVerification(verified=True, details=f"Application '{arguments['app_name']}' launch verified.")
 
 
 class SearchFilesTool(BaseTool):

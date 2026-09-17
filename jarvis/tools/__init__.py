@@ -24,12 +24,19 @@ from jarvis.tools.system_tools import (
     ShutdownTool,
     RestartTool,
 )
+from jarvis.tools.productivity_tools import (
+    CreateFolderTool,
+    CheckProcessTool,
+    GetHardwareMetricsTool,
+    SetReminderTool,
+)
 from jarvis.tools.web_tools import BrowserSearchTool
 
 
 def get_default_registry() -> ToolRegistry:
     """Build and return a ToolRegistry populated with all default tools."""
     registry = ToolRegistry()
+    # System & Computer Control
     registry.register(OpenFileTool())
     registry.register(OpenApplicationTool())
     registry.register(SearchFilesTool())
@@ -42,6 +49,12 @@ def get_default_registry() -> ToolRegistry:
     registry.register(LockPCTool())
     registry.register(ShutdownTool())
     registry.register(RestartTool())
+    # Productivity & Telemetry
+    registry.register(CreateFolderTool())
+    registry.register(CheckProcessTool())
+    registry.register(GetHardwareMetricsTool())
+    registry.register(SetReminderTool())
+    # Web
     registry.register(BrowserSearchTool())
     return registry
 
@@ -69,6 +82,10 @@ __all__ = [
     "LockPCTool",
     "ShutdownTool",
     "RestartTool",
+    "CreateFolderTool",
+    "CheckProcessTool",
+    "GetHardwareMetricsTool",
+    "SetReminderTool",
     "BrowserSearchTool",
     "get_default_registry",
 ]

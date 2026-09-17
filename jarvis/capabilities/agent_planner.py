@@ -47,21 +47,29 @@ class AgentToolExecutor:
         """Construct the tool-augmented system prompt for Ollama."""
         tool_desc = self.registry.get_prompt_description()
         return (
-            "You are JARVIS, an autonomous AI assistant capable of interacting with the local computer.\n"
-            "When the user requests an action, analyze if a tool is needed.\n"
+            "You are JARVIS, an advanced autonomous AI assistant capable of controlling the local Windows laptop.\n"
+            "When the user requests an action or asks about applications, files, hardware metrics, or system states, analyze which tool to use.\n"
             "If a tool is needed, respond ONLY with a JSON object in this exact format:\n"
             '{"tool": "<tool_name>", "arguments": {<key>: <value>}}\n\n'
-            "If no tool is needed (e.g. conversational questions, explanations), respond with standard text.\n\n"
+            "Contextual Rules:\n"
+            "- When the user refers to items from earlier in the conversation (e.g. 'this PDF', 'that folder', 'the file we found'), inspect previous turns and use those exact paths.\n"
+            "- For applications like Edge, VS Code, Spotify, use 'open_application' with the app name.\n"
+            "- For queries like 'How much RAM am I using?' or 'What is my CPU usage?', use 'get_hardware_metrics'.\n"
+            "- For queries like 'Is Ollama running?', use 'check_process' with process_name='ollama'.\n"
+            "- If no tool is needed (e.g. pure conversation or conceptual explanations), respond with standard text.\n\n"
             f"{tool_desc}"
         )
 
     def extract_tool_call(self, text: str) -> Optional[Tuple[str, Dict[str, Any]]]:
-        """Extracts tool name and arguments from Ollama response if a tool was invoked."""
+        """Extracts tool name and arguments from Ollama response only if tool exists in registry."""
         cleaned = text.strip()
 
         # Match ```json ... ``` blocks if present
         json_match = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", cleaned, re.DOTALL)
         candidate = json_match.group(1) if json_match else cleaned
+
+        tool_name = None
+        args = {}
 
         # Attempt JSON parse
         try:
@@ -73,25 +81,32 @@ class AgentToolExecutor:
                     args = data.get("arguments", {})
                     if not isinstance(args, dict):
                         args = {}
-                    return tool_name, args
                 # Alternative format: {"name": "...", "parameters": {...}}
                 elif "name" in data and "parameters" in data:
-                    return data["name"], data.get("parameters", {})
+                    tool_name = data["name"]
+                    args = data.get("parameters", {})
         except json.JSONDecodeError:
-            pass
+            # Try regex search for embedded {"tool": ...}
+            embedded = re.search(r'\{[^{}]*"tool"\s*:\s*"([^"]+)"[^{}]*\}', cleaned, re.DOTALL)
+            if embedded:
+                try:
+                    data = json.loads(embedded.group(0))
+                    tool_name = data.get("tool")
+                    args = data.get("arguments", {})
+                except Exception:
+                    pass
 
-        # Try regex search for embedded {"tool": ...}
-        embedded = re.search(r'\{[^{}]*"tool"\s*:\s*"([^"]+)"[^{}]*\}', cleaned, re.DOTALL)
-        if embedded:
-            try:
-                data = json.loads(embedded.group(0))
-                return data.get("tool"), data.get("arguments", {})
-            except Exception:
-                pass
+        if tool_name:
+            clean_name = str(tool_name).strip().lower()
+            # Verify tool is actually in the registry
+            if self.registry.get(clean_name):
+                return clean_name, args
 
         return None
 
-    def execute_tool(self, tool_name: str, arguments: Dict[str, Any]) -> Tuple[Optional[ToolResult], Optional[ToolVerification], PermissionDecision]:
+    def execute_tool(
+        self, tool_name: str, arguments: Dict[str, Any]
+    ) -> Tuple[Optional[ToolResult], Optional[ToolVerification], PermissionDecision]:
         """Executes the complete validation, permission, execution, and verification pipeline."""
         tool = self.registry.get(tool_name)
         if not tool:
@@ -137,12 +152,26 @@ class AgentToolExecutor:
         system_prompt = self.build_system_prompt()
         ollama_response = self.ollama.chat(history, system_prompt=system_prompt)
 
-        # Check if Ollama requested a tool
+        # Check if Ollama requested a valid registered tool
         tool_call = self.extract_tool_call(ollama_response)
         if not tool_call:
+            # If Ollama responded with JSON containing a text/message field for an unregistered pseudo-tool
+            fallback_text = ollama_response
+            try:
+                data = json.loads(ollama_response.strip())
+                if isinstance(data, dict):
+                    args = data.get("arguments") or data
+                    if isinstance(args, dict):
+                        for k in ("text", "content", "message", "reply", "answer"):
+                            if k in args and isinstance(args[k], str):
+                                fallback_text = args[k]
+                                break
+            except Exception:
+                pass
+
             return AgentTurnResult(
                 tool_called=False,
-                final_response=ollama_response,
+                final_response=fallback_text,
             )
 
         tool_name, args = tool_call
