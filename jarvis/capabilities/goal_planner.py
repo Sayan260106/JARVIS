@@ -13,6 +13,8 @@ from jarvis.tools.base import BaseTool, ToolResult, ToolVerification
 from jarvis.tools.registry import ToolRegistry
 from jarvis.tools import get_default_registry
 from jarvis.capabilities.agent_planner import AgentToolExecutor
+from jarvis.core.task_schemas import Task, TaskStatus, TaskPriority
+from jarvis.core.task_manager import TaskManager
 
 
 @dataclass
@@ -35,6 +37,8 @@ class GoalPlan:
     target_directory: str
     subtasks: List[Subtask] = field(default_factory=list)
     final_summary: str = ""
+    task_id: Optional[str] = None
+    task: Optional[Task] = None
 
 
 class GoalPlanner:
@@ -44,10 +48,12 @@ class GoalPlanner:
         self,
         registry: Optional[ToolRegistry] = None,
         tool_executor: Optional[AgentToolExecutor] = None,
+        task_manager: Optional[TaskManager] = None,
         on_subtask_progress: Optional[Callable[[Subtask], None]] = None,
     ):
         self.registry = registry or get_default_registry()
         self.tool_executor = tool_executor or AgentToolExecutor(registry=self.registry)
+        self.task_manager = task_manager or TaskManager()
         self.on_subtask_progress = on_subtask_progress
 
     @staticmethod
@@ -109,10 +115,26 @@ class GoalPlanner:
             Subtask(7, "Verify results", "inspect_directory", {"directory": directory}),
             Subtask(8, "Report changes", "inspect_directory", {"directory": directory}),
         ]
-        return GoalPlan(objective=objective, target_directory=directory, subtasks=subtasks)
+        # Register persistent Task with TaskManager
+        task = self.task_manager.create_task(
+            objective=objective,
+            context={"target_directory": directory},
+            plan=[{"task_num": s.task_num, "name": s.name, "tool": s.tool_name} for s in subtasks],
+        )
+        self.task_manager.transition_status(task.id, TaskStatus.PLANNING)
+        return GoalPlan(
+            objective=objective,
+            target_directory=directory,
+            subtasks=subtasks,
+            task_id=task.id,
+            task=task,
+        )
 
     def execute_plan(self, plan: GoalPlan) -> GoalPlan:
         """Executes the subtasks step-by-step, propagating state and reporting progress."""
+        if plan.task_id:
+            self.task_manager.transition_status(plan.task_id, TaskStatus.RUNNING)
+
         print(f"\nOBJECTIVE\n{plan.objective}\n")
         print("PLAN")
         for st in plan.subtasks:
@@ -131,18 +153,32 @@ class GoalPlanner:
 
         for st in plan.subtasks:
             st.status = "RUNNING"
+            if plan.task_id:
+                self.task_manager.transition_status(plan.task_id, TaskStatus.RUNNING)
+
             tool = self.registry.get(st.tool_name)
 
             if not tool:
                 st.status = "FAILED"
                 st.status_message = f"Tool '{st.tool_name}' not found in registry."
+                if plan.task_id:
+                    self.task_manager.record_failure(plan.task_id, st.task_num, st.name, st.status_message)
                 continue
 
             # Execute tool
             res = tool.execute(**st.arguments)
+            if plan.task_id:
+                self.task_manager.transition_status(plan.task_id, TaskStatus.VERIFYING)
             ver = tool.verify(st.arguments, res)
             st.result = res
             st.verification = ver
+
+            if res.success:
+                if plan.task_id:
+                    self.task_manager.advance_step(plan.task_id, st.task_num, st.name, result=res.output)
+            else:
+                if plan.task_id:
+                    self.task_manager.record_failure(plan.task_id, st.task_num, st.name, error=res.error or "Failed")
 
             # Format specialized status messages per subtask
             if st.task_num == 1:
@@ -172,6 +208,12 @@ class GoalPlanner:
                 st.status = "SUCCESS"
                 if dups > 0:
                     st.status_message = f"{dups} duplicates detected"
+                    if plan.task_id:
+                        self.task_manager.add_artifact(plan.task_id, {
+                            "type": "duplicates",
+                            "count": dups,
+                            "files": res.output.get("duplicate_files", []),
+                        })
                 else:
                     st.status_message = "SUCCESS (0 duplicates detected)"
 
@@ -186,6 +228,12 @@ class GoalPlanner:
                 telemetry["categories_created"] = res.output.get("categories_created", []) if res.success else []
                 st.status = "SUCCESS"
                 st.status_message = "SUCCESS"
+                if plan.task_id:
+                    self.task_manager.add_artifact(plan.task_id, {
+                        "type": "organized_files",
+                        "moved_count": telemetry["moved_count"],
+                        "categories": telemetry["categories_created"],
+                    })
 
             elif st.task_num == 7:
                 # 7. Verify results
@@ -236,5 +284,7 @@ class GoalPlanner:
         )
 
         plan.final_summary = f"Done. I organized {moved} files into {cat_word} and {dup_phrase}"
+        if plan.task_id:
+            plan.task = self.task_manager.complete_task(plan.task_id, final_result=plan.final_summary)
         print(f"\nFinally:\n\n\"{plan.final_summary}\"\n")
         return plan

@@ -29,6 +29,9 @@ from jarvis.tools.productivity_tools import (
     CheckProcessTool,
     GetHardwareMetricsTool,
     SetReminderTool,
+    ListTasksTool,
+    GetTaskStatusTool,
+    CancelTaskTool,
 )
 from jarvis.tools.file_organization_tools import (
     InspectDirectoryTool,
@@ -54,11 +57,14 @@ def get_default_registry() -> ToolRegistry:
     registry.register(LockPCTool())
     registry.register(ShutdownTool())
     registry.register(RestartTool())
-    # Productivity & Telemetry
+    # Productivity, Telemetry & Task Management
     registry.register(CreateFolderTool())
     registry.register(CheckProcessTool())
     registry.register(GetHardwareMetricsTool())
     registry.register(SetReminderTool())
+    registry.register(ListTasksTool())
+    registry.register(GetTaskStatusTool())
+    registry.register(CancelTaskTool())
     # File Organization & Inspection
     registry.register(InspectDirectoryTool())
     registry.register(DetectDuplicatesTool())

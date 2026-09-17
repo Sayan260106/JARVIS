@@ -231,3 +231,135 @@ class SetReminderTool(BaseTool):
             verified=True,
             details=f"Reminder for '{arguments['message']}' scheduled to fire in {arguments.get('delay_seconds', 60)}s."
         )
+
+
+class ListTasksTool(BaseTool):
+    """Lists persistent tasks tracked by JARVIS TaskManager."""
+    name = "list_tasks"
+    description = "Lists persistent tasks tracked by JARVIS, optionally filtered by status (PENDING, PLANNING, RUNNING, WAITING, VERIFYING, FAILED, RECOVERING, COMPLETED, CANCELLED)."
+    risk_level = RiskLevel.LOW
+    parameters = {
+        "status": ToolParameter("status", "string", "Optional status filter (e.g. 'RUNNING', 'COMPLETED').", required=False),
+        "limit": ToolParameter("limit", "integer", "Max tasks to return (default: 20).", required=False, default=20),
+    }
+
+    def execute(self, status: Optional[str] = None, limit: int = 20, **kwargs) -> ToolResult:
+        start_t = time.perf_counter()
+        try:
+            from jarvis.core.task_manager import TaskManager
+            from jarvis.core.task_schemas import TaskStatus
+            tm = TaskManager()
+            status_filter = None
+            if status:
+                try:
+                    status_filter = TaskStatus(status.upper())
+                except ValueError:
+                    pass
+            tasks = tm.list_tasks(status=status_filter, limit=int(limit))
+            output = {
+                "count": len(tasks),
+                "tasks": [t.to_dict() for t in tasks],
+            }
+            return ToolResult(
+                success=True,
+                output=output,
+                duration_ms=(time.perf_counter() - start_t) * 1000,
+            )
+        except Exception as e:
+            return ToolResult(
+                success=False,
+                output=None,
+                error=str(e),
+                duration_ms=(time.perf_counter() - start_t) * 1000,
+            )
+
+    def verify(self, arguments: Dict[str, Any], result: ToolResult) -> ToolVerification:
+        if not result.success:
+            return ToolVerification(verified=False, details=f"Failed to list tasks: {result.error}")
+        return ToolVerification(
+            verified=True,
+            details=f"Retrieved {result.output.get('count', 0)} tasks from persistent task store."
+        )
+
+
+class GetTaskStatusTool(BaseTool):
+    """Retrieves full persistent state for a specific Task ID."""
+    name = "get_task_status"
+    description = "Gets the detailed status, current step, plan, retry count, and artifacts for a specific task ID."
+    risk_level = RiskLevel.LOW
+    parameters = {
+        "task_id": ToolParameter("task_id", "string", "The ID of the task to query.", required=True),
+    }
+
+    def execute(self, task_id: str, **kwargs) -> ToolResult:
+        start_t = time.perf_counter()
+        try:
+            from jarvis.core.task_manager import TaskManager
+            tm = TaskManager()
+            task = tm.get_task(task_id.strip())
+            if not task:
+                return ToolResult(
+                    success=False,
+                    output=None,
+                    error=f"Task '{task_id}' not found.",
+                    duration_ms=(time.perf_counter() - start_t) * 1000,
+                )
+            return ToolResult(
+                success=True,
+                output=task.to_dict(),
+                duration_ms=(time.perf_counter() - start_t) * 1000,
+            )
+        except Exception as e:
+            return ToolResult(
+                success=False,
+                output=None,
+                error=str(e),
+                duration_ms=(time.perf_counter() - start_t) * 1000,
+            )
+
+    def verify(self, arguments: Dict[str, Any], result: ToolResult) -> ToolVerification:
+        if not result.success:
+            return ToolVerification(verified=False, details=f"Task lookup failed: {result.error}")
+        return ToolVerification(
+            verified=True,
+            details=f"Task '{arguments['task_id']}' has status '{result.output.get('status')}'."
+        )
+
+
+class CancelTaskTool(BaseTool):
+    """Cancels an active or pending task."""
+    name = "cancel_task"
+    description = "Cancels a running, waiting, or pending task by task ID."
+    risk_level = RiskLevel.MEDIUM
+    parameters = {
+        "task_id": ToolParameter("task_id", "string", "The ID of the task to cancel.", required=True),
+        "reason": ToolParameter("reason", "string", "Reason for cancellation.", required=False, default="Cancelled by user"),
+    }
+
+    def execute(self, task_id: str, reason: str = "Cancelled by user", **kwargs) -> ToolResult:
+        start_t = time.perf_counter()
+        try:
+            from jarvis.core.task_manager import TaskManager
+            tm = TaskManager()
+            task = tm.cancel_task(task_id.strip(), reason=reason)
+            return ToolResult(
+                success=True,
+                output={"task_id": task.id, "status": task.status.value, "reason": reason},
+                duration_ms=(time.perf_counter() - start_t) * 1000,
+            )
+        except Exception as e:
+            return ToolResult(
+                success=False,
+                output=None,
+                error=str(e),
+                duration_ms=(time.perf_counter() - start_t) * 1000,
+            )
+
+    def verify(self, arguments: Dict[str, Any], result: ToolResult) -> ToolVerification:
+        if not result.success:
+            return ToolVerification(verified=False, details=f"Failed to cancel task: {result.error}")
+        return ToolVerification(
+            verified=True,
+            details=f"Task '{arguments['task_id']}' was cancelled."
+        )
+
