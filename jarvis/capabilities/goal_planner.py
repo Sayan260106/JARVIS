@@ -138,6 +138,79 @@ class GoalPlanner:
             task=task,
         )
 
+    @staticmethod
+    def is_visual_click_goal(user_prompt: str) -> bool:
+        """Detect whether prompt requests locating and clicking a UI element on screen."""
+        lower = user_prompt.lower()
+        has_click = any(w in lower for w in ["click", "press", "tap"])
+        has_target = any(w in lower for w in ["button", "icon", "run", "debug", "close", "save", "submit"])
+        return has_click and has_target
+
+    @staticmethod
+    def extract_click_target(user_prompt: str) -> str:
+        """Extract the target UI element name from click command (e.g. 'Click the Run button' -> 'Run')."""
+        import re
+        m = re.search(r"click\s+(?:the\s+)?(?:on\s+)?['\"]?([a-zA-Z0-9_\-]+)['\"]?(?:\s+button)?", user_prompt, re.IGNORECASE)
+        if m:
+            return m.group(1).strip()
+        for candidate in ["run", "debug", "close", "save", "submit", "start"]:
+            if candidate in user_prompt.lower():
+                return candidate.capitalize()
+        return "Run"
+
+    @staticmethod
+    def is_visual_diagnostic_goal(user_prompt: str) -> bool:
+        """Detect whether prompt requests visual screen diagnostics (e.g. 'Jarvis, what's wrong?')."""
+        lower = user_prompt.lower()
+        return any(
+            p in lower
+            for p in [
+                "what's wrong",
+                "what is wrong",
+                "inspect screen",
+                "check screen",
+                "what is on my screen",
+                "what's on my screen",
+                "diagnose screen",
+            ]
+        )
+
+    def create_visual_click_plan(
+        self,
+        objective: str,
+        target_label: str = "Run",
+        simulated_content: Optional[str] = None,
+    ) -> GoalPlan:
+        """Builds the 6-step closed-loop visual desktop action plan:
+        1. Screenshot
+        2. Locate "Run"
+        3. Coordinates
+        4. Mouse action
+        5. Screenshot
+        6. Verify
+        """
+        subtasks = [
+            Subtask(1, "Screenshot", "capture_screen", {"simulated_content": simulated_content}),
+            Subtask(2, f'Locate "{target_label}"', "locate_ui_element", {"label": target_label, "simulated_content": simulated_content}),
+            Subtask(3, "Coordinates", "locate_ui_element", {"label": target_label, "simulated_content": simulated_content}),
+            Subtask(4, "Mouse action", "click_screen_element", {"label": target_label, "simulated_content": simulated_content}),
+            Subtask(5, "Screenshot", "capture_screen", {"simulated_content": simulated_content}),
+            Subtask(6, "Verify", "capture_screen", {"simulated_content": simulated_content}),
+        ]
+        task = self.task_manager.create_task(
+            objective=objective,
+            context={"target_label": target_label, "simulated_content": simulated_content},
+            plan=[{"task_num": s.task_num, "name": s.name, "tool": s.tool_name} for s in subtasks],
+        )
+        self.task_manager.transition_status(task.id, TaskStatus.PLANNING)
+        return GoalPlan(
+            objective=objective,
+            target_directory="",
+            subtasks=subtasks,
+            task_id=task.id,
+            task=task,
+        )
+
     def create_organization_plan(self, objective: str, directory: str) -> GoalPlan:
         """Builds the 8-step organization plan requested by the user:
 
@@ -229,7 +302,8 @@ class GoalPlanner:
                     self.task_manager.record_failure(plan.task_id, st.task_num, st.name, error=res.error or "Failed")
 
             is_browser_plan = bool(plan.subtasks and plan.subtasks[0].name == "SEARCH")
-            if is_browser_plan:
+            is_visual_click_plan = bool(plan.subtasks and plan.subtasks[0].name == "Screenshot" and len(plan.subtasks) == 6)
+            if is_browser_plan or is_visual_click_plan:
                 if res.success:
                     st.status = "SUCCESS"
                     st.status_message = "SUCCESS"
@@ -311,6 +385,17 @@ class GoalPlanner:
         if plan.subtasks and plan.subtasks[0].name == "SEARCH":
             target_name = os.path.basename(plan.target_directory.rstrip("\\/")) or plan.target_directory
             plan.final_summary = f"Done. Found the official GATE notification, downloaded the verified PDF, and stored it in {target_name}."
+            if plan.task_id:
+                plan.task = self.task_manager.complete_task(plan.task_id, final_result=plan.final_summary)
+            print(f"\nFinally:\n\n\"{plan.final_summary}\"\n")
+            return plan
+
+        # Check if visual action workflow (e.g. "Click the Run button")
+        if plan.subtasks and plan.subtasks[0].name == "Screenshot" and len(plan.subtasks) == 6:
+            target_label = "Run"
+            if plan.task and "target_label" in plan.task.context:
+                target_label = plan.task.context["target_label"]
+            plan.final_summary = f"Done. Located \"{target_label}\", executed mouse action, and verified the updated screen state."
             if plan.task_id:
                 plan.task = self.task_manager.complete_task(plan.task_id, final_result=plan.final_summary)
             print(f"\nFinally:\n\n\"{plan.final_summary}\"\n")

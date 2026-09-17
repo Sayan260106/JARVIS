@@ -59,6 +59,12 @@ from jarvis.tools.browser_tools import (
     BrowserCloseTabTool,
     BrowserDownloadTool,
 )
+from jarvis.tools.vision_tools import (
+    CaptureScreenTool,
+    InspectScreenTool,
+    LocateUIElementTool,
+    ClickScreenElementTool,
+)
 
 
 def get_default_registry() -> ToolRegistry:
@@ -109,6 +115,10 @@ def get_default_registry() -> ToolRegistry:
     registry.register(BrowserBackTool())
     registry.register(BrowserCloseTabTool())
     registry.register(BrowserDownloadTool())
+    registry.register(CaptureScreenTool())
+    registry.register(InspectScreenTool())
+    registry.register(LocateUIElementTool())
+    registry.register(ClickScreenElementTool())
     return registry
 
 
@@ -143,5 +153,9 @@ __all__ = [
     "DetectDuplicatesTool",
     "BatchOrganizeFilesTool",
     "BrowserSearchTool",
+    "CaptureScreenTool",
+    "InspectScreenTool",
+    "LocateUIElementTool",
+    "ClickScreenElementTool",
     "get_default_registry",
 ]
