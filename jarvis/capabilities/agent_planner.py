@@ -7,6 +7,7 @@ Ollama -> Tool Request -> Tool Validator -> Permission System -> Tool Execution 
 from __future__ import annotations
 import json
 import re
+import os
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -146,6 +147,24 @@ class AgentToolExecutor:
         conversation_history: Optional[List[Dict[str, str]]] = None,
     ) -> AgentTurnResult:
         """Complete agent turn: Prompt -> Tool Call? -> Validate -> Perms -> Exec -> Verify -> Synthesize."""
+        # Check for multi-step goal planning (e.g. directory organization)
+        from jarvis.capabilities.goal_planner import GoalPlanner
+        if GoalPlanner.is_directory_organize_goal(user_prompt):
+            target_dir = GoalPlanner.resolve_target_directory(user_prompt)
+            planner = GoalPlanner(registry=self.registry, tool_executor=self)
+            dir_name = os.path.basename(target_dir.rstrip("\\/")) or target_dir
+            plan = planner.create_organization_plan(
+                objective=f"Organize {dir_name}",
+                directory=target_dir,
+            )
+            executed_plan = planner.execute_plan(plan)
+            return AgentTurnResult(
+                tool_called=True,
+                tool_name="batch_organize_files",
+                arguments={"directory": target_dir},
+                final_response=executed_plan.final_summary,
+            )
+
         history = list(conversation_history or [])
         history.append({"role": "user", "content": user_prompt})
 
@@ -168,6 +187,18 @@ class AgentToolExecutor:
                                 break
             except Exception:
                 pass
+
+            # If Ollama responded with JSON specifying tool: None/null or no text payload, fallback to plain text answer
+            if not fallback_text or fallback_text.strip().startswith("{"):
+                try:
+                    data = json.loads(ollama_response.strip())
+                    if isinstance(data, dict) and str(data.get("tool")).lower() in ("none", "null", ""):
+                        fallback_text = self.ollama.chat(
+                            [{"role": "user", "content": user_prompt}],
+                            system_prompt="You are JARVIS. Answer the user's question directly, clearly, and concisely in plain conversational text without JSON."
+                        )
+                except Exception:
+                    pass
 
             return AgentTurnResult(
                 tool_called=False,

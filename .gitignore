@@ -10,6 +10,8 @@ env/
 
 # Test artifacts & databases
 data/test_*
+*.db
+data/*.db
 artifacts/
 *.log
 

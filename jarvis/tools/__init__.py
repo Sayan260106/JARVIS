@@ -30,6 +30,11 @@ from jarvis.tools.productivity_tools import (
     GetHardwareMetricsTool,
     SetReminderTool,
 )
+from jarvis.tools.file_organization_tools import (
+    InspectDirectoryTool,
+    DetectDuplicatesTool,
+    BatchOrganizeFilesTool,
+)
 from jarvis.tools.web_tools import BrowserSearchTool
 
 
@@ -54,6 +59,10 @@ def get_default_registry() -> ToolRegistry:
     registry.register(CheckProcessTool())
     registry.register(GetHardwareMetricsTool())
     registry.register(SetReminderTool())
+    # File Organization & Inspection
+    registry.register(InspectDirectoryTool())
+    registry.register(DetectDuplicatesTool())
+    registry.register(BatchOrganizeFilesTool())
     # Web
     registry.register(BrowserSearchTool())
     return registry
@@ -86,6 +95,9 @@ __all__ = [
     "CheckProcessTool",
     "GetHardwareMetricsTool",
     "SetReminderTool",
+    "InspectDirectoryTool",
+    "DetectDuplicatesTool",
+    "BatchOrganizeFilesTool",
     "BrowserSearchTool",
     "get_default_registry",
 ]
