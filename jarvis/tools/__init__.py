@@ -44,6 +44,7 @@ from jarvis.tools.service_tools import (
     StartBackendServiceTool,
 )
 from jarvis.tools.web_tools import BrowserSearchTool
+from jarvis.tools.web_intelligence_tool import ResearchTopicTool
 
 
 def get_default_registry() -> ToolRegistry:
@@ -78,8 +79,9 @@ def get_default_registry() -> ToolRegistry:
     registry.register(FreePortTool())
     registry.register(VerifyEndpointTool())
     registry.register(StartBackendServiceTool())
-    # Web
+    # Web & Auxiliary Cloud Intelligence
     registry.register(BrowserSearchTool())
+    registry.register(ResearchTopicTool())
     return registry
 
 
