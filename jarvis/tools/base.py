@@ -18,6 +18,14 @@ class RiskLevel(str, Enum):
     HIGH = "HIGH"       # File deletion, arbitrary shell execution, system reboot/shutdown (Requires approval)
 
 
+class PermissionLevel(str, Enum):
+    """The 4-level permission taxonomy for autonomous agent safety."""
+    LEVEL_0_READ = "LEVEL_0_READ"                       # Automatic (read file, search, system info, screen capture)
+    LEVEL_1_REVERSIBLE_WRITE = "LEVEL_1_REVERSIBLE_WRITE" # Reversible write (create folder/file, move file, open app)
+    LEVEL_2_EXTERNAL_ACTION = "LEVEL_2_EXTERNAL_ACTION"   # External actions (email, publish, upload, post, purchase) -> requires confirmation + preview
+    LEVEL_3_DESTRUCTIVE = "LEVEL_3_DESTRUCTIVE"           # Destructive (delete, shutdown, format, admin) -> requires explicit confirmation + impact warning
+
+
 @dataclass
 class ToolParameter:
     """Specification of a single parameter accepted by a tool."""
@@ -50,7 +58,19 @@ class BaseTool(ABC):
     name: str = ""
     description: str = ""
     risk_level: RiskLevel = RiskLevel.LOW
+    permission_level: Optional[PermissionLevel] = None
     parameters: Dict[str, ToolParameter] = {}
+
+    @property
+    def effective_permission_level(self) -> PermissionLevel:
+        """Derive permission level explicitly or backward-compatibly from risk_level."""
+        if self.permission_level is not None:
+            return self.permission_level
+        if self.risk_level == RiskLevel.HIGH:
+            return PermissionLevel.LEVEL_3_DESTRUCTIVE
+        elif self.risk_level == RiskLevel.MEDIUM:
+            return PermissionLevel.LEVEL_1_REVERSIBLE_WRITE
+        return PermissionLevel.LEVEL_0_READ
 
     @abstractmethod
     def execute(self, **kwargs) -> ToolResult:
@@ -96,6 +116,7 @@ class BaseTool(ABC):
             "name": self.name,
             "description": self.description,
             "risk_level": self.risk_level.value,
+            "permission_level": self.effective_permission_level.value,
             "parameters": {
                 "type": "object",
                 "properties": properties,

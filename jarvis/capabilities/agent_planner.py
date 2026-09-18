@@ -17,6 +17,8 @@ from jarvis.tools.permissions import PermissionSystem, PermissionDecision
 from jarvis.tools.registry import ToolRegistry
 from jarvis.tools import get_default_registry
 from jarvis.subsystems.local.ollama_client import OllamaClient
+from jarvis.capabilities.reasoning.intent_analyzer import IntentAnalyzer, IntentType
+from jarvis.capabilities.reasoning.reasoning_pipeline import ReasoningPipeline
 
 
 @dataclass
@@ -43,6 +45,13 @@ class AgentToolExecutor:
         self.ollama = ollama_client or OllamaClient()
         self.registry = registry or get_default_registry()
         self.permissions = permission_system or PermissionSystem()
+        self.intent_analyzer = IntentAnalyzer()
+        self.reasoning_pipeline = ReasoningPipeline(
+            intent_analyzer=self.intent_analyzer,
+            permission_system=self.permissions,
+            registry=self.registry,
+            tool_executor=self,
+        )
 
     def build_system_prompt(self) -> str:
         """Construct the tool-augmented system prompt for Ollama."""
@@ -146,7 +155,34 @@ class AgentToolExecutor:
         user_prompt: str,
         conversation_history: Optional[List[Dict[str, str]]] = None,
     ) -> AgentTurnResult:
-        """Complete agent turn: Prompt -> Tool Call? -> Validate -> Perms -> Exec -> Verify -> Synthesize."""
+        """Complete agent turn: Prompt -> Intent Analysis -> Policy Gate -> Tool Call? -> Validate -> Perms -> Exec -> Verify -> Synthesize."""
+        # 1. Intent Analysis & Safety Gatekeeping
+        intent = self.intent_analyzer.analyze(user_prompt, conversation_history)
+        if intent.intent_type == IntentType.DESTRUCTIVE_ACTION and intent.requires_confirmation:
+            return AgentTurnResult(
+                tool_called=True,
+                tool_name=intent.target_tool or "safe_delete_projects",
+                arguments=intent.parameters,
+                final_response=intent.warning_prompt or "This action is destructive and requires confirmation.",
+            )
+
+        if intent.intent_type == IntentType.EXTERNAL_ACTION and intent.requires_confirmation:
+            preview = intent.confirmation_preview or {}
+            preview_text = (
+                "External Action Confirmation Required:\n"
+                f"  Recipient : {preview.get('Recipient', 'None')}\n"
+                f"  Subject   : {preview.get('Subject', 'None')}\n"
+                f"  Message   : {preview.get('Message', 'None')}\n"
+                f"  Attachment: {preview.get('Attachment', 'None')}\n\n"
+                "Would you like me to send this email?"
+            )
+            return AgentTurnResult(
+                tool_called=True,
+                tool_name=intent.target_tool or "send_email",
+                arguments=intent.parameters,
+                final_response=preview_text,
+            )
+
         # Check for multi-step goal planning (e.g. directory organization)
         from jarvis.capabilities.goal_planner import GoalPlanner
         if GoalPlanner.is_directory_organize_goal(user_prompt):
@@ -221,6 +257,19 @@ class AgentToolExecutor:
         exec_result, verification, perm = self.execute_tool(tool_name, args)
 
         if not perm.allowed:
+            final_msg = f"I cannot proceed with '{tool_name}': {perm.reason}"
+            if perm.custom_prompt:
+                final_msg = perm.custom_prompt
+            elif perm.confirmation_preview:
+                preview = perm.confirmation_preview
+                final_msg = (
+                    "External Action Confirmation Required:\n"
+                    f"  Recipient : {preview.get('Recipient', 'None')}\n"
+                    f"  Subject   : {preview.get('Subject', 'None')}\n"
+                    f"  Message   : {preview.get('Message', 'None')}\n"
+                    f"  Attachment: {preview.get('Attachment', 'None')}\n\n"
+                    "Would you like me to send this email?"
+                )
             return AgentTurnResult(
                 tool_called=True,
                 tool_name=tool_name,
@@ -228,7 +277,7 @@ class AgentToolExecutor:
                 tool_result=exec_result,
                 verification=verification,
                 permission_decision=perm,
-                final_response=f"I cannot proceed with '{tool_name}': {perm.reason}",
+                final_response=final_msg,
             )
 
         # Provide tool execution feedback back to Ollama for final response

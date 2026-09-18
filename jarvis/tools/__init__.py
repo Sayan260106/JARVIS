@@ -3,6 +3,7 @@
 from jarvis.tools.base import (
     BaseTool,
     RiskLevel,
+    PermissionLevel,
     ToolParameter,
     ToolResult,
     ToolVerification,
@@ -10,6 +11,8 @@ from jarvis.tools.base import (
 from jarvis.tools.validator import ToolValidator, ValidationResult
 from jarvis.tools.permissions import PermissionSystem, PermissionDecision
 from jarvis.tools.registry import ToolRegistry
+from jarvis.tools.communication_tools import SendEmailTool
+from jarvis.tools.safe_delete_tool import SafeDeleteProjectsTool
 from jarvis.tools.system_tools import (
     OpenFileTool,
     OpenApplicationTool,
@@ -133,12 +136,16 @@ def get_default_registry() -> ToolRegistry:
     registry.register(SearchKnowledgeTool())
     registry.register(ManageWorkingMemoryTool())
     registry.register(RunComplexTaskTool())
+    # External Action (Level 2) & Safe Destructive (Level 3)
+    registry.register(SendEmailTool())
+    registry.register(SafeDeleteProjectsTool())
     return registry
 
 
 __all__ = [
     "BaseTool",
     "RiskLevel",
+    "PermissionLevel",
     "ToolParameter",
     "ToolResult",
     "ToolVerification",
@@ -147,6 +154,8 @@ __all__ = [
     "PermissionSystem",
     "PermissionDecision",
     "ToolRegistry",
+    "SendEmailTool",
+    "SafeDeleteProjectsTool",
     "OpenFileTool",
     "OpenApplicationTool",
     "SearchFilesTool",
