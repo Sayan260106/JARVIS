@@ -76,7 +76,7 @@ class WindowsExecutor:
     # 1. Applications & Processes
     # ---------------------------------------------------------
     @classmethod
-    def launch_app(cls, target: str) -> Tuple[bool, str, Optional[int]]:
+    def launch_app(cls, target: str, arguments: Optional[str] = None) -> Tuple[bool, str, Optional[int]]:
         """Launches an application, executable, or special user folder (e.g. 'Downloads')."""
         clean = target.strip().lower()
 
@@ -110,7 +110,7 @@ class WindowsExecutor:
                 return False, f"Failed to open directory '{target}': {e}", None
 
         # Launch application via WindowsAppLauncher
-        return WindowsAppLauncher.launch(target)
+        return WindowsAppLauncher.launch(target, arguments=arguments)
 
     @classmethod
     def close_app(cls, name_or_title: str, force: bool = False) -> Tuple[bool, str]:
@@ -641,9 +641,14 @@ class WindowsExecutor:
             return False, f"Failed to sleep PC: {e}"
 
     @classmethod
-    def shutdown(cls, delay_seconds: int = 60, abort: bool = False) -> Tuple[bool, str]:
+    def shutdown(cls, delay_seconds: int = 60, abort: bool = False, message: Optional[str] = None) -> Tuple[bool, str]:
         """Initiates or cancels Windows shutdown."""
-        cmd = "shutdown /a" if abort else f"shutdown /s /t {delay_seconds}"
+        if abort:
+            cmd = "shutdown /a"
+        else:
+            cmd = f"shutdown /s /t {delay_seconds}"
+            if message:
+                cmd += f' /c "{message}"'
         try:
             subprocess.run(cmd, shell=True, capture_output=True, text=True)
             return True, "Shutdown cancelled." if abort else f"Shutdown scheduled in {delay_seconds} seconds."
@@ -651,9 +656,14 @@ class WindowsExecutor:
             return False, f"Shutdown command failed: {e}"
 
     @classmethod
-    def restart(cls, delay_seconds: int = 60, abort: bool = False) -> Tuple[bool, str]:
+    def restart(cls, delay_seconds: int = 60, abort: bool = False, message: Optional[str] = None) -> Tuple[bool, str]:
         """Initiates or cancels Windows restart."""
-        cmd = "shutdown /a" if abort else f"shutdown /r /t {delay_seconds}"
+        if abort:
+            cmd = "shutdown /a"
+        else:
+            cmd = f"shutdown /r /t {delay_seconds}"
+            if message:
+                cmd += f' /c "{message}"'
         try:
             subprocess.run(cmd, shell=True, capture_output=True, text=True)
             return True, "Restart cancelled." if abort else f"Restart scheduled in {delay_seconds} seconds."

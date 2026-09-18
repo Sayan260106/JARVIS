@@ -39,6 +39,10 @@ class StepRecord:
     verification: VerificationResult
     recovery: Optional[RecoveryAction] = None
 
+    @property
+    def status(self) -> StepStatus:
+        return self.step.status
+
 
 @dataclass
 class AgentSessionState:

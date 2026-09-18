@@ -65,16 +65,47 @@ class OpenApplicationTool(BaseTool):
     description = "Launches an application by name (e.g. 'Edge', 'VS Code', 'Spotify', 'Notepad', 'Calculator')."
     risk_level = RiskLevel.MEDIUM
     parameters = {
-        "app_name": ToolParameter("app_name", "string", "Name or alias of application to open.", required=True),
+        "app_name": ToolParameter("app_name", "string", "Name or alias of application to open.", required=False),
+        "application": ToolParameter("application", "string", "Alias for app_name.", required=False),
+        "arguments": ToolParameter("arguments", "string", "Optional command-line arguments to pass.", required=False, default=None),
     }
 
-    def execute(self, app_name: str, **kwargs) -> ToolResult:
+    def execute(
+        self,
+        app_name: Optional[str] = None,
+        application: Optional[str] = None,
+        arguments: Optional[str] = None,
+        **kwargs,
+    ) -> ToolResult:
         start_t = time.perf_counter()
+        target = app_name or application or kwargs.get("name", "")
+        if not target:
+            return ToolResult(
+                success=False,
+                output=None,
+                error="Missing required application name parameter.",
+                duration_ms=(time.perf_counter() - start_t) * 1000,
+            )
         from jarvis.subsystems.system.windows_executor import WindowsExecutor
-        success, msg, pid = WindowsExecutor.launch_app(app_name)
+        res = WindowsExecutor.launch_app(target, arguments)
+        if isinstance(res, dict):
+            success = res.get("success", True)
+            msg = res.get("message", f"Application '{target}' launched successfully")
+            pid = res.get("pid")
+        elif isinstance(res, tuple):
+            if len(res) == 3:
+                success, msg, pid = res
+            elif len(res) == 2:
+                success, msg = res
+                pid = None
+            else:
+                success, msg, pid = res[0], str(res), None
+        else:
+            success, msg, pid = bool(res), str(res), None
+
         return ToolResult(
             success=success,
-            output={"app_name": app_name, "message": msg, "pid": pid},
+            output={"app_name": target, "application": target, "message": msg, "pid": pid},
             error=None if success else msg,
             duration_ms=(time.perf_counter() - start_t) * 1000,
         )
@@ -82,7 +113,8 @@ class OpenApplicationTool(BaseTool):
     def verify(self, arguments: Dict[str, Any], result: ToolResult) -> ToolVerification:
         if not result.success:
             return ToolVerification(verified=False, details=f"Failed to start application: {result.error}")
-        return ToolVerification(verified=True, details=f"Application '{arguments['app_name']}' launch verified.")
+        target = arguments.get("app_name") or arguments.get("application") or "Application"
+        return ToolVerification(verified=True, details=f"Application '{target}' launch verified.")
 
 
 class SearchFilesTool(BaseTool):
@@ -446,10 +478,19 @@ class LockPCTool(BaseTool):
     def execute(self, **kwargs) -> ToolResult:
         start_t = time.perf_counter()
         try:
-            success = bool(ctypes.windll.user32.LockWorkStation())
+            from jarvis.subsystems.system.windows_executor import WindowsExecutor
+            res = WindowsExecutor.lock_pc()
+            if isinstance(res, dict):
+                success = res.get("success", True)
+                msg = res.get("message", "Workstation locked successfully.")
+            elif isinstance(res, tuple):
+                success, msg = res
+            else:
+                success, msg = bool(res), "Workstation locked successfully."
             return ToolResult(
                 success=success,
-                output="Workstation locked",
+                output={"message": msg},
+                error=None if success else msg,
                 duration_ms=(time.perf_counter() - start_t) * 1000,
             )
         except Exception as e:
@@ -474,12 +515,22 @@ class ShutdownTool(BaseTool):
     parameters = {
         "delay_seconds": ToolParameter("delay_seconds", "integer", "Shutdown delay in seconds.", required=False, default=60),
         "abort": ToolParameter("abort", "boolean", "Abort a pending shutdown.", required=False, default=False),
+        "message": ToolParameter("message", "string", "Optional shutdown reason message.", required=False, default=None),
     }
 
-    def execute(self, delay_seconds: int = 60, abort: bool = False, **kwargs) -> ToolResult:
+    def execute(self, delay_seconds: int = 60, abort: bool = False, message: Optional[str] = None, **kwargs) -> ToolResult:
         start_t = time.perf_counter()
         from jarvis.subsystems.system.windows_executor import WindowsExecutor
-        success, msg = WindowsExecutor.shutdown(delay_seconds=delay_seconds, abort=abort)
+        msg_arg = message or kwargs.get("message", None)
+        res = WindowsExecutor.shutdown(delay_seconds, abort, msg_arg)
+        if isinstance(res, dict):
+            success = res.get("success", True)
+            msg = res.get("message", "Shutdown command executed.")
+        elif isinstance(res, tuple):
+            success, msg = res
+        else:
+            success, msg = bool(res), str(res)
+
         return ToolResult(
             success=success,
             output={"delay_seconds": delay_seconds, "abort": abort, "message": msg},
@@ -501,12 +552,22 @@ class RestartTool(BaseTool):
     parameters = {
         "delay_seconds": ToolParameter("delay_seconds", "integer", "Restart delay in seconds.", required=False, default=60),
         "abort": ToolParameter("abort", "boolean", "Abort a pending restart.", required=False, default=False),
+        "message": ToolParameter("message", "string", "Optional restart reason message.", required=False, default=None),
     }
 
-    def execute(self, delay_seconds: int = 60, abort: bool = False, **kwargs) -> ToolResult:
+    def execute(self, delay_seconds: int = 60, abort: bool = False, message: Optional[str] = None, **kwargs) -> ToolResult:
         start_t = time.perf_counter()
         from jarvis.subsystems.system.windows_executor import WindowsExecutor
-        success, msg = WindowsExecutor.restart(delay_seconds=delay_seconds, abort=abort)
+        msg_arg = message or kwargs.get("message", None)
+        res = WindowsExecutor.restart(delay_seconds, abort, msg_arg)
+        if isinstance(res, dict):
+            success = res.get("success", True)
+            msg = res.get("message", "Restart command executed.")
+        elif isinstance(res, tuple):
+            success, msg = res
+        else:
+            success, msg = bool(res), str(res)
+
         return ToolResult(
             success=success,
             output={"delay_seconds": delay_seconds, "abort": abort, "message": msg},
@@ -569,17 +630,40 @@ class CloseApplicationTool(BaseTool):
     description = "Closes a running application or process by name or window title (e.g. 'Chrome', 'Notepad', 'Edge', 'VS Code')."
     risk_level = RiskLevel.MEDIUM
     parameters = {
-        "app_name": ToolParameter("app_name", "string", "Name, alias, or window title of application to close.", required=True),
+        "app_name": ToolParameter("app_name", "string", "Name, alias, or window title of application to close.", required=False),
+        "application": ToolParameter("application", "string", "Alias for app_name.", required=False),
         "force": ToolParameter("force", "boolean", "Force terminate (kill) instead of graceful close.", required=False, default=False),
     }
 
-    def execute(self, app_name: str, force: bool = False, **kwargs) -> ToolResult:
+    def execute(
+        self,
+        app_name: Optional[str] = None,
+        application: Optional[str] = None,
+        force: bool = False,
+        **kwargs,
+    ) -> ToolResult:
         start_t = time.perf_counter()
+        target = app_name or application or kwargs.get("name", "")
+        if not target:
+            return ToolResult(
+                success=False,
+                output=None,
+                error="Missing required application name parameter.",
+                duration_ms=(time.perf_counter() - start_t) * 1000,
+            )
         from jarvis.subsystems.system.windows_executor import WindowsExecutor
-        success, msg = WindowsExecutor.close_app(app_name, force=force)
+        res = WindowsExecutor.close_app(target, force)
+        if isinstance(res, dict):
+            success = res.get("success", True)
+            msg = res.get("message", f"Closed application '{target}'")
+        elif isinstance(res, tuple):
+            success, msg = res
+        else:
+            success, msg = bool(res), str(res)
+
         return ToolResult(
             success=success,
-            output={"app_name": app_name, "message": msg},
+            output={"app_name": target, "application": target, "message": msg},
             error=None if success else msg,
             duration_ms=(time.perf_counter() - start_t) * 1000,
         )
@@ -587,7 +671,8 @@ class CloseApplicationTool(BaseTool):
     def verify(self, arguments: Dict[str, Any], result: ToolResult) -> ToolVerification:
         if not result.success:
             return ToolVerification(verified=False, details=f"Failed to close application: {result.error}")
-        return ToolVerification(verified=True, details=f"Application '{arguments['app_name']}' closed and verified.")
+        target = arguments.get("app_name") or arguments.get("application") or "Application"
+        return ToolVerification(verified=True, details=f"Application '{target}' closed and verified.")
 
 
 class FocusWindowTool(BaseTool):
@@ -998,14 +1083,84 @@ class SleepPCTool(BaseTool):
     def execute(self, **kwargs) -> ToolResult:
         start_t = time.perf_counter()
         from jarvis.subsystems.system.windows_executor import WindowsExecutor
-        success, msg = WindowsExecutor.sleep_pc()
+        res = WindowsExecutor.sleep_pc()
+        if isinstance(res, dict):
+            success = res.get("success", True)
+            msg = res.get("message", "Sleep command executed.")
+        elif isinstance(res, tuple):
+            success, msg = res
+        else:
+            success, msg = bool(res), str(res)
+
         return ToolResult(
             success=success,
             output={"message": msg},
+            error=None if success else msg,
             duration_ms=(time.perf_counter() - start_t) * 1000,
         )
 
     def verify(self, arguments: Dict[str, Any], result: ToolResult) -> ToolVerification:
         return ToolVerification(verified=True, details="Sleep command executed.")
+
+
+class KeyboardInputTool(BaseTool):
+    """Types keyboard input into the active focused window."""
+    name = "keyboard_input"
+    description = "Types keyboard input / text keystrokes into the currently focused window."
+    risk_level = RiskLevel.LOW
+    parameters = {
+        "text": ToolParameter("text", "string", "Text string to type into the active window.", required=True),
+        "delay_after": ToolParameter("delay_after", "number", "Delay in seconds after typing (default 0.05s).", required=False, default=0.05),
+    }
+
+    def execute(self, text: str, delay_after: float = 0.05, **kwargs) -> ToolResult:
+        start_t = time.perf_counter()
+        from jarvis.subsystems.system.windows_executor import WindowsExecutor
+        res = WindowsExecutor.type_text(text)
+        if isinstance(res, dict):
+            success = res.get("success", True)
+            msg = res.get("message", f"Typed {len(text)} characters.")
+        elif isinstance(res, tuple):
+            success, msg = res
+        else:
+            success, msg = bool(res), str(res)
+        if delay_after > 0:
+            time.sleep(delay_after)
+        return ToolResult(
+            success=success,
+            output={"text": text, "length": len(text), "message": msg},
+            error=None if success else msg,
+            duration_ms=(time.perf_counter() - start_t) * 1000,
+        )
+
+    def verify(self, arguments: Dict[str, Any], result: ToolResult) -> ToolVerification:
+        if not result.success:
+            return ToolVerification(verified=False, details=f"Keyboard input failed: {result.error}")
+        text_arg = arguments.get("text", "")
+        return ToolVerification(verified=True, details=f"Successfully entered keyboard input ({len(text_arg)} characters).")
+
+
+class ListProcessesTool(BaseTool):
+    """Inspects and enumerates running processes with telemetry."""
+    name = "list_processes"
+    description = "Lists running processes with PID, CPU %, memory %, and status, with optional name filter."
+    risk_level = RiskLevel.LOW
+    parameters = {
+        "filter_name": ToolParameter("filter_name", "string", "Optional process name filter (e.g. 'chrome', 'python').", required=False, default=None),
+        "max_results": ToolParameter("max_results", "integer", "Maximum processes to return (default 50).", required=False, default=50),
+    }
+
+    def execute(self, filter_name: Optional[str] = None, max_results: int = 50, **kwargs) -> ToolResult:
+        start_t = time.perf_counter()
+        from jarvis.subsystems.system.windows_executor import WindowsExecutor
+        processes = WindowsExecutor.list_processes(filter_name=filter_name, max_results=max_results)
+        return ToolResult(
+            success=True,
+            output={"processes": processes, "count": len(processes), "filter": filter_name},
+            duration_ms=(time.perf_counter() - start_t) * 1000,
+        )
+
+    def verify(self, arguments: Dict[str, Any], result: ToolResult) -> ToolVerification:
+        return ToolVerification(verified=result.success, details=f"Retrieved telemetry for {result.output.get('count', 0)} process(es).")
 
 

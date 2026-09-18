@@ -154,7 +154,31 @@ class TestWindowsControlAgent(unittest.TestCase):
         self.assertTrue(os.path.isdir(target_path))
 
     # ----------------------------------------------------------------------
-    # Target 4: "Shutdown the computer."
+    # Target 4: "Lock the computer."
+    # ----------------------------------------------------------------------
+    @patch.object(WindowsExecutor, "lock_pc")
+    def test_target_4_lock_computer(self, mock_lock):
+        mock_lock.return_value = {
+            "success": True,
+            "message": "Workstation locked successfully.",
+        }
+        loop = JarvisAgentLoop(registry=self.registry, task_manager=self.task_manager)
+        prompt = "Lock the computer."
+
+        objective = loop.understand_cap.understand(prompt, {})
+        self.assertEqual(objective.extracted_entities.get("action"), "lock_pc")
+
+        plan = loop.plan_cap.plan(objective, AgentSessionState(task_id="test"))
+        step = plan.steps[0]
+        self.assertEqual(step.tool_name, "lock_pc")
+        self.assertNotEqual(step.tool_name, "powershell_exec")
+
+        state = loop.run(prompt)
+        self.assertEqual(state.history[0].status, StepStatus.SUCCESS)
+        mock_lock.assert_called_once()
+
+    # ----------------------------------------------------------------------
+    # Target 4 (Variant): "Shutdown the computer."
     # ----------------------------------------------------------------------
     @patch.object(WindowsExecutor, "shutdown")
     def test_target_4_shutdown_computer(self, mock_shutdown):
@@ -231,6 +255,8 @@ class TestWindowsControlAgent(unittest.TestCase):
             "sleep_pc",
             "shutdown",
             "restart",
+            "keyboard_input",
+            "list_processes",
         ]
         for t_name in expected_tools:
             self.assertIsNotNone(self.registry.get(t_name), f"Missing tool in registry: {t_name}")

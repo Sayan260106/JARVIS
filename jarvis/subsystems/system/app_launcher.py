@@ -53,7 +53,7 @@ class WindowsAppLauncher:
         return {"type": "cmd", "target": app_name}
 
     @classmethod
-    def launch(cls, app_name: str) -> Tuple[bool, str, Optional[int]]:
+    def launch(cls, app_name: str, arguments: Optional[str] = None) -> Tuple[bool, str, Optional[int]]:
         """Launches the application on Windows.
 
         Returns:
@@ -82,8 +82,9 @@ class WindowsAppLauncher:
                 if os.path.exists(vscode_path):
                     target = f'"{vscode_path}"'
 
+            cmd = f"{target} {arguments}" if arguments else target
             try:
-                proc = subprocess.Popen(target, shell=True)
-                return True, f"Launched process '{target}' (PID: {proc.pid})", proc.pid
+                proc = subprocess.Popen(cmd, shell=True)
+                return True, f"Launched process '{cmd}' (PID: {proc.pid})", proc.pid
             except Exception as e:
-                return False, f"Failed to launch command '{target}': {e}", None
+                return False, f"Failed to launch command '{cmd}': {e}", None
