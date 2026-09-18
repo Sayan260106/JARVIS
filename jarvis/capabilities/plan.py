@@ -82,6 +82,133 @@ class DefaultPlanCapability(PlanCapability):
                     expected_outcome=f"Target '{target}' visually grounded, action executed, and state change verified.",
                 )
             )
+        # 1.38 Unified Computer-Use Workflow (13-step pipeline across Web, System, Document, LLM, Vision)
+        if entities.get("action") == "unified_computer_use_workflow":
+            course = entities.get("course", "DBMS")
+            dest = entities.get("destination_folder", "college folder")
+            editor = entities.get("editor", "VS Code")
+            dest_dir = f"data/college_folder/{course}"
+            sol_file = f"{dest_dir}/{course}_Assignment_Solution.sql"
+            pdf_path = f"{dest_dir}/{course}_Assignment_1.pdf"
+
+            # 1. Open Chrome
+            s1 = PlanStep.create(
+                description=f"Launch Chrome with institutional profile",
+                subsystem=SubsystemType.WEB,
+                tool_name="browser_open",
+                arguments={"channel": "chrome", "profile_name": "institutional"},
+                expected_outcome="Google Chrome launched with institutional profile.",
+                depends_on=[],
+            )
+            # 2. Navigate Classroom
+            s2 = PlanStep.create(
+                description="Navigate to Google Classroom dashboard",
+                subsystem=SubsystemType.WEB,
+                tool_name="browser_navigate",
+                arguments={"url": "https://classroom.google.com"},
+                expected_outcome="Navigated to Google Classroom.",
+                depends_on=[s1.step_id],
+            )
+            # 3. Find DBMS
+            s3 = PlanStep.create(
+                description=f"Find and enter {course} course stream",
+                subsystem=SubsystemType.WEB,
+                tool_name="browser_search_page",
+                arguments={"query": course},
+                expected_outcome=f"Located course card for '{course}'.",
+                depends_on=[s2.step_id],
+            )
+            # 4. Find assignment
+            s4 = PlanStep.create(
+                description=f"Locate latest assignment in {course}",
+                subsystem=SubsystemType.WEB,
+                tool_name="browser_extract",
+                arguments={"selector": ".assignment-item, body"},
+                expected_outcome=f"Identified latest {course} assignment.",
+                depends_on=[s3.step_id],
+            )
+            # 5. Download
+            s5 = PlanStep.create(
+                description="Download assignment document",
+                subsystem=SubsystemType.WEB,
+                tool_name="browser_download",
+                arguments={"url": f"https://classroom.google.com/c/{course.lower()}/a/1", "destination": dest_dir},
+                expected_outcome="Assignment file downloaded.",
+                depends_on=[s4.step_id],
+            )
+            # 6. Verify file
+            s6 = PlanStep.create(
+                description="Verify assignment file integrity",
+                subsystem=SubsystemType.SYSTEM,
+                tool_name="browser_verify_pdf",
+                arguments={"file_path": pdf_path},
+                expected_outcome="File integrity verified (%PDF magic bytes and size).",
+                depends_on=[s5.step_id],
+            )
+            # 7. Parse assignment
+            s7 = PlanStep.create(
+                description="Parse assignment text and questions",
+                subsystem=SubsystemType.DOCUMENT,
+                tool_name="document_read",
+                arguments={"file_path": pdf_path},
+                expected_outcome="Parsed assignment structure and problem statements.",
+                depends_on=[s6.step_id],
+            )
+            # 8. Solve
+            s8 = PlanStep.create(
+                description=f"Solve all {course} questions using local reasoning model",
+                subsystem=SubsystemType.LOCAL,
+                tool_name="document_answer_question",
+                arguments={"query": f"Solve all questions for {course} assignment with full SQL and proofs."},
+                expected_outcome="High-yield solutions, DDL queries, and normalization proofs formulated.",
+                depends_on=[s7.step_id],
+            )
+            # 9. Create solution
+            s9 = PlanStep.create(
+                description="Create formatted solution document",
+                subsystem=SubsystemType.DOCUMENT,
+                tool_name="document_generate_notes",
+                arguments={"topic": f"{course} Assignment 1 Solution"},
+                expected_outcome="Structured solution document compiled.",
+                depends_on=[s8.step_id],
+            )
+            # 10. Save
+            s10 = PlanStep.create(
+                description=f"Save solution to {dest}",
+                subsystem=SubsystemType.SYSTEM,
+                tool_name="create_file",
+                arguments={"path": sol_file, "content": "-- SQL Solution", "overwrite": True},
+                expected_outcome=f"Solution file verified at '{sol_file}'.",
+                depends_on=[s9.step_id],
+            )
+            # 11. Open VS Code
+            s11 = PlanStep.create(
+                description=f"Launch {editor} with solution file",
+                subsystem=SubsystemType.SYSTEM,
+                tool_name="open_application",
+                arguments={"app_name": "code", "file_path": sol_file},
+                expected_outcome=f"{editor} active with solution file.",
+                depends_on=[s10.step_id],
+            )
+            # 12. Verify file opened
+            s12 = PlanStep.create(
+                description=f"Verify {editor} window active",
+                subsystem=SubsystemType.VISION,
+                tool_name="get_active_window",
+                arguments={},
+                expected_outcome=f"Verified {editor} window active.",
+                depends_on=[s11.step_id],
+            )
+            # 13. Report completion
+            s13 = PlanStep.create(
+                description="Report end-to-end task completion",
+                subsystem=SubsystemType.LOCAL,
+                tool_name="session_recall",
+                arguments={"query": "Summarize assignment completion and report final status."},
+                expected_outcome="Task summary synthesized and reported.",
+                depends_on=[s12.step_id],
+            )
+            steps.extend([s1, s2, s3, s4, s5, s6, s7, s8, s9, s10, s11, s12, s13])
             return ExecutionPlan.create(objective=objective, steps=steps)
 
         # 1.4 Academic Lecture Search & Exam Study workflow

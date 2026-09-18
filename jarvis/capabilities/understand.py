@@ -1,3 +1,4 @@
+from typing import Optional
 import re
 from typing import Any, Dict, List
 from jarvis.capabilities.base import UnderstandCapability
@@ -85,6 +86,45 @@ class DefaultUnderstandCapability(UnderstandCapability):
                 context=context,
                 sub_goals=sub_goals,
                 extracted_entities=study_match,
+                is_ambiguous=False,
+            )
+
+        # 1.45 Unified Computer-Use Workflow (e.g. "Find the latest DBMS assignment in Classroom, download it, solve it, save the solution in my college folder, and open it in VS Code.")
+        unified_match = self._parse_unified_computer_use_workflow(cleaned)
+        if unified_match:
+            course = unified_match["course"]
+            dest = unified_match["destination_folder"]
+            editor = unified_match["editor"]
+            sub_goals = [
+                "Open Chrome with institutional profile",
+                "Navigate to Google Classroom",
+                f"Find {course} course card and stream",
+                f"Find latest {course} assignment",
+                "Download assignment document",
+                "Verify downloaded file integrity",
+                "Parse assignment structure and questions",
+                "Solve assignment problems and generate SQL/code",
+                "Create complete structured solution artifact",
+                f"Save solution into {dest}",
+                f"Open solution file in {editor}",
+                f"Verify {editor} window active with solution",
+                "Report end-to-end task completion",
+            ]
+            return TaskObjective(
+                raw_input=cleaned,
+                intent=IntentCategory.TASK_AUTOMATION,
+                description=f"Retrieve latest {course} assignment from Classroom, solve questions, save to {dest}, and open in {editor}.",
+                target_criteria=f"Assignment downloaded from Classroom, solved, saved to {dest}, and opened in {editor}.",
+                context=context,
+                sub_goals=sub_goals,
+                extracted_entities={
+                    "action": "unified_computer_use_workflow",
+                    "course": course,
+                    "destination_folder": dest,
+                    "editor": editor,
+                    "browser": unified_match.get("browser", "Chrome"),
+                    "service": unified_match.get("service", "Classroom"),
+                },
                 is_ambiguous=False,
             )
 
@@ -454,6 +494,49 @@ class DefaultUnderstandCapability(UnderstandCapability):
             act_raw = m.group("act").lower().replace(" ", "_")
             target = m.group("target").strip()
             return {"action_type": act_raw, "target": target}
+        return None
+
+    def _parse_unified_computer_use_workflow(self, text: str) -> Optional[Dict[str, Any]]:
+        """Detects compound multi-subsystem workflows bridging browser, documents, LLM, filesystem, and editor."""
+        clean = text.strip()
+        lower = clean.lower()
+
+        # Check for key markers: classroom/portal + assignment/lab + solve + save + vs code/editor
+        has_source = any(w in lower for w in ["classroom", "portal", "lms", "moodle"])
+        has_task = any(w in lower for w in ["assignment", "homework", "problem set", "lab task"])
+        has_solve = any(w in lower for w in ["solve", "solution", "complete it", "do it"])
+        has_editor = any(w in lower for w in ["vs code", "vscode", "editor", "code", "notepad"])
+
+        if has_source and has_task and (has_solve or has_editor):
+            # Extract course
+            course = "DBMS"
+            course_m = re.search(r"\b([A-Z]{2,6}|[A-Za-z0-9]+)\s+assignment\b", clean, re.IGNORECASE)
+            if course_m and course_m.group(1).lower() not in ["latest", "the", "my", "new", "this"]:
+                course = course_m.group(1).upper()
+            else:
+                for cand in ["DBMS", "ECE", "OS", "DSA", "CN", "AI", "ML"]:
+                    if cand.lower() in lower:
+                        course = cand
+                        break
+
+            # Extract destination folder
+            dest_folder = "college folder"
+            folder_m = re.search(r"in\s+(?:my\s+)?([a-zA-Z0-9_\-\s]+?\s+folder)", clean, re.IGNORECASE)
+            if folder_m:
+                dest_folder = folder_m.group(1).strip()
+
+            # Extract editor
+            editor = "VS Code"
+            if "notepad" in lower:
+                editor = "Notepad"
+
+            return {
+                "course": course,
+                "destination_folder": dest_folder,
+                "editor": editor,
+                "service": "Classroom",
+                "browser": "Chrome",
+            }
         return None
 
 

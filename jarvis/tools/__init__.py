@@ -113,7 +113,7 @@ from jarvis.tools.memory_tools import (
     ManagePreferenceTool,
     WorkflowMemoryTool,
 )
-from jarvis.tools.orchestration_tools import RunComplexTaskTool
+from jarvis.tools.orchestration_tools import RunComplexTaskTool, UnifiedComputerUseTool
 from jarvis.tools.document_tools import (
     DocumentReadTool,
     DocumentChunkTool,
@@ -223,6 +223,7 @@ def get_default_registry() -> ToolRegistry:
     registry.register(SearchKnowledgeTool())
     registry.register(ManageWorkingMemoryTool())
     registry.register(RunComplexTaskTool())
+    registry.register(UnifiedComputerUseTool())
     # External Action (Level 2) & Safe Destructive (Level 3)
     registry.register(SendEmailTool())
     registry.register(SafeDeleteProjectsTool())
@@ -248,6 +249,7 @@ def get_default_registry() -> ToolRegistry:
 
 
 __all__ = [
+    "UnifiedComputerUseTool",
     "CaptureRegionTool",
     "ScreenOCRTool",
     "DetectUIElementsTool",
