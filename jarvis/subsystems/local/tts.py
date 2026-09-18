@@ -25,12 +25,18 @@ class LocalTTS:
         self._lock = threading.Lock()
         self._engine = None
 
+        self._is_speaking = False
+
         if self.enabled:
             self._init_engine()
 
+    @property
+    def is_speaking(self) -> bool:
+        """Returns True if speech playback is currently in progress."""
+        return self._is_speaking
+
     def _init_engine(self):
         if pyttsx3 is None:
-            print("[TTS Warning] pyttsx3 package is not installed. Falling back to console-only speech.")
             self._engine = None
             return
 
@@ -39,7 +45,6 @@ class LocalTTS:
             self._engine.setProperty("rate", self.rate)
             self._engine.setProperty("volume", self.volume)
         except Exception as e:
-            print(f"[TTS Warning] Could not initialize SAPI5 engine: {e}. Falling back to console-only speech.")
             self._engine = None
 
     def speak(self, text: str, wait: bool = True):
@@ -48,27 +53,36 @@ class LocalTTS:
             return
 
         clean_text = text.strip()
-
         if not self.enabled or self._engine is None:
             return
 
         with self._lock:
             try:
+                self._is_speaking = True
                 self._engine.say(clean_text)
                 if wait:
                     self._engine.runAndWait()
-            except Exception as e:
-                # If pyttsx3 loop gets desynced, attempt recovery
+            except Exception:
                 try:
                     self._init_engine()
-                    self._engine.say(clean_text)
-                    if wait:
-                        self._engine.runAndWait()
+                    if self._engine:
+                        self._engine.say(clean_text)
+                        if wait:
+                            self._engine.runAndWait()
                 except Exception:
                     pass
+            finally:
+                if wait:
+                    self._is_speaking = False
+
+    def speak_async(self, text: str):
+        """Speaks text in background thread so user can interrupt JARVIS mid-speech."""
+        t = threading.Thread(target=self.speak, args=(text, True), daemon=True)
+        t.start()
 
     def stop(self):
-        """Immediately halts active speech playback."""
+        """Immediately halts active speech playback and resets state."""
+        self._is_speaking = False
         if self._engine:
             try:
                 self._engine.stop()

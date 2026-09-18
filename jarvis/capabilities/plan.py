@@ -22,8 +22,33 @@ class DefaultPlanCapability(PlanCapability):
     def plan(self, objective: TaskObjective, state: AgentSessionState) -> ExecutionPlan:
         steps: List[PlanStep] = []
 
-        # 1. Compound editor automation: "Open <App>, type <Text>, save it as <File>"
+        # 0. Conversational Cancellation / Rollback Directives
         entities = objective.extracted_entities or {}
+        if entities.get("action") == "cancel":
+            steps.append(
+                PlanStep.create(
+                    description="Cancel active task or action",
+                    subsystem=SubsystemType.SYSTEM,
+                    tool_name="cancel_task",
+                    arguments={"task_id": state.task_id or "", "reason": "User requested cancellation"},
+                    expected_outcome="Active task marked as cancelled.",
+                )
+            )
+            return ExecutionPlan.create(objective=objective, steps=steps)
+
+        if entities.get("action") == "rollback":
+            steps.append(
+                PlanStep.create(
+                    description="Revert previous action and restore state",
+                    subsystem=SubsystemType.SYSTEM,
+                    tool_name="rollback_action",
+                    arguments={"task_id": state.task_id or ""},
+                    expected_outcome="Previous action reverted.",
+                )
+            )
+            return ExecutionPlan.create(objective=objective, steps=steps)
+
+        # 1. Compound editor automation: "Open <App>, type <Text>, save it as <File>"
         if "app_name" in entities and "text" in entities and "file_path" in entities:
             app_name = entities["app_name"]
             text_content = entities["text"]

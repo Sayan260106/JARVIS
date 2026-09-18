@@ -27,6 +27,8 @@ class DefaultActCapability(ActCapability):
             "local_summarizer": lambda style="concise", **kwargs: {"status": "ok", "summary": f"Synthesized research summary in {style} style.", "exit_code": 0},
             "local_reasoning": lambda prompt="", **kwargs: {"status": "ok", "answer": f"Processed answer for: {prompt}", "exit_code": 0},
             "task_runner": lambda task="", **kwargs: {"status": "ok", "message": f"Completed {task}", "exit_code": 0},
+            "cancel_task": lambda task_id="", reason="Cancelled", **kwargs: {"status": "ok", "cancelled": True, "reason": reason, "exit_code": 0},
+            "rollback_action": lambda task_id="", **kwargs: {"status": "ok", "reverted": True, "exit_code": 0},
         }
 
     def _resolve_args(self, args: Dict[str, Any], context: Dict[str, Any]) -> Dict[str, Any]:

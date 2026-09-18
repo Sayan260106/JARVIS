@@ -4,6 +4,7 @@ Captures audio via sounddevice and transcribes locally using faster-whisper or s
 """
 
 from __future__ import annotations
+from ast import List
 import io
 import wave
 from typing import Optional
@@ -132,9 +133,54 @@ class LocalSTT:
                 return ""
         return ""
 
-    def listen_and_transcribe(self, timeout: float = 6.0) -> str:
-        """High-level helper: records speech from mic and transcribes."""
-        audio = self.record_until_silence(max_duration=timeout)
-        if audio is None:
-            return ""
-        return self.transcribe(audio)
+    def process_stream_chunk(self, audio_chunk: np.ndarray) -> Optional[str]:
+        """Processes an incoming audio chunk in real time; returns transcribed text if voice detected."""
+        if audio_chunk is None or len(audio_chunk) == 0:
+            return None
+        rms = float(np.sqrt(np.mean(audio_chunk**2)))
+        if rms >= self.energy_threshold:
+            text = self.transcribe(audio_chunk)
+            return text if text else None
+        return None
+
+
+class WakeWordDetector:
+    """Detects activation phrases (e.g. 'Hey JARVIS', 'JARVIS') with sensitivity and command extraction."""
+
+    DEFAULT_WAKE_WORDS = ["hey jarvis", "jarvis", "hi jarvis", "ok jarvis"]
+
+    def __init__(self, wake_words: Optional[List[str]] = None, sensitivity: float = 0.5):
+        self.wake_words = [w.lower().strip() for w in (wake_words or self.DEFAULT_WAKE_WORDS)]
+        self.sensitivity = sensitivity
+
+    def is_wake_word(self, text: str) -> bool:
+        """Determines if the utterance is purely a wake word trigger (e.g. 'Hey JARVIS...')."""
+        import re
+        cleaned = re.sub(r"[^\w\s]", "", text.strip().lower())
+        return cleaned in self.wake_words
+
+    def extract_command(self, text: str) -> Optional[str]:
+        """If utterance starts with a wake word, extracts trailing command.
+        
+        Returns:
+            - "" (empty string) if utterance was ONLY the wake word (e.g. 'Hey JARVIS...')
+            - "Open Chrome" if compound utterance (e.g. 'Hey JARVIS, open Chrome')
+            - None if wake word was NOT present at the start of the utterance.
+        """
+        import re
+        cleaned = text.strip()
+        lower = cleaned.lower()
+        for w in self.wake_words:
+            pattern = rf"^{re.escape(w)}[\s,:\.\?!]*(.*)$"
+            m = re.match(pattern, lower)
+            if m:
+                rest = m.group(1).strip()
+                if rest:
+                    return cleaned[m.start(1):].strip()
+                return ""
+        return None
+
+    def contains_wake_word(self, text: str) -> bool:
+        """Checks whether the text contains any wake word phrase."""
+        lower = text.lower()
+        return any(w in lower for w in self.wake_words)

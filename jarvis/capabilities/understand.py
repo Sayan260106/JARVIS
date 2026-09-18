@@ -24,6 +24,30 @@ class DefaultUnderstandCapability(UnderstandCapability):
         sub_goals: List[str] = []
         extracted_entities: Dict[str, Any] = {}
 
+        # 0. Conversational Cancellation / Interruption Directive
+        if re.search(r"^(?:actually[,\s]+)?(?:cancel(?:\s+that)?|abort|stop(?:\s+that)?)(?:[\s,:\.\?!]+.*)?$", cleaned, re.I):
+            return TaskObjective(
+                raw_input=cleaned,
+                intent=IntentCategory.SYSTEM_COMMAND,
+                description="Cancel active task or in-flight action.",
+                target_criteria="Active task or operation terminated immediately.",
+                context=context,
+                extracted_entities={"action": "cancel", "directive": "cancel_task"},
+                is_ambiguous=False,
+            )
+
+        # 0.5 Conversational Revert / Undo / Go Back Directive
+        if re.search(r"^(?:wait[,\s]+)?(?:go\s+back|undo(?:\s+that)?|revert(?:\s+last\s+action)?)(?:[\s,:\.\?!]+.*)?$", cleaned, re.I):
+            return TaskObjective(
+                raw_input=cleaned,
+                intent=IntentCategory.SYSTEM_COMMAND,
+                description="Revert or undo previous action and step back.",
+                target_criteria="Previous state or application state restored.",
+                context=context,
+                extracted_entities={"action": "rollback", "directive": "undo_action"},
+                is_ambiguous=False,
+            )
+
         # 1. Compound multi-step task detection (e.g. "Open Notepad, type Hello, save it as test.txt")
         compound_match = self._parse_compound_editor_task(cleaned)
         if compound_match:
