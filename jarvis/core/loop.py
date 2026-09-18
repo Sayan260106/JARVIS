@@ -74,10 +74,12 @@ class JarvisAgentLoop:
         verify: Optional[VerifyCapability] = None,
         recover: Optional[RecoverCapability] = None,
         task_manager: Optional[TaskManager] = None,
+        registry: Optional[Any] = None,
     ):
+        self.registry = registry
         self.understand_cap = understand or DefaultUnderstandCapability()
-        self.plan_cap = plan or DefaultPlanCapability()
-        self.act_cap = act or DefaultActCapability()
+        self.plan_cap = plan or DefaultPlanCapability(registry=registry)
+        self.act_cap = act or DefaultActCapability(registry=registry)
         self.observe_cap = observe or DefaultObserveCapability()
         self.verify_cap = verify or DefaultVerifyCapability()
         self.recover_cap = recover or DefaultRecoverCapability()

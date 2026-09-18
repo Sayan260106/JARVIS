@@ -70,8 +70,8 @@ class OpenApplicationTool(BaseTool):
 
     def execute(self, app_name: str, **kwargs) -> ToolResult:
         start_t = time.perf_counter()
-        from jarvis.subsystems.system.app_launcher import WindowsAppLauncher
-        success, msg, pid = WindowsAppLauncher.launch(app_name)
+        from jarvis.subsystems.system.windows_executor import WindowsExecutor
+        success, msg, pid = WindowsExecutor.launch_app(app_name)
         return ToolResult(
             success=success,
             output={"app_name": app_name, "message": msg, "pid": pid},
@@ -478,27 +478,19 @@ class ShutdownTool(BaseTool):
 
     def execute(self, delay_seconds: int = 60, abort: bool = False, **kwargs) -> ToolResult:
         start_t = time.perf_counter()
-        cmd = "shutdown /a" if abort else f"shutdown /s /t {delay_seconds}"
-        try:
-            res = subprocess.run(cmd, shell=True, capture_output=True, text=True)
-            return ToolResult(
-                success=(res.returncode == 0),
-                output={"command": cmd, "stdout": res.stdout.strip()},
-                error=res.stderr.strip() if res.returncode != 0 else None,
-                duration_ms=(time.perf_counter() - start_t) * 1000,
-            )
-        except Exception as e:
-            return ToolResult(
-                success=False,
-                output=None,
-                error=str(e),
-                duration_ms=(time.perf_counter() - start_t) * 1000,
-            )
+        from jarvis.subsystems.system.windows_executor import WindowsExecutor
+        success, msg = WindowsExecutor.shutdown(delay_seconds=delay_seconds, abort=abort)
+        return ToolResult(
+            success=success,
+            output={"delay_seconds": delay_seconds, "abort": abort, "message": msg},
+            error=None if success else msg,
+            duration_ms=(time.perf_counter() - start_t) * 1000,
+        )
 
     def verify(self, arguments: Dict[str, Any], result: ToolResult) -> ToolVerification:
         if not result.success:
             return ToolVerification(verified=False, details=f"Shutdown command failed: {result.error}")
-        return ToolVerification(verified=True, details="Shutdown command executed and verified.")
+        return ToolVerification(verified=True, details=result.output.get("message", "Shutdown command executed and verified."))
 
 
 class RestartTool(BaseTool):
@@ -513,27 +505,19 @@ class RestartTool(BaseTool):
 
     def execute(self, delay_seconds: int = 60, abort: bool = False, **kwargs) -> ToolResult:
         start_t = time.perf_counter()
-        cmd = "shutdown /a" if abort else f"shutdown /r /t {delay_seconds}"
-        try:
-            res = subprocess.run(cmd, shell=True, capture_output=True, text=True)
-            return ToolResult(
-                success=(res.returncode == 0),
-                output={"command": cmd, "stdout": res.stdout.strip()},
-                error=res.stderr.strip() if res.returncode != 0 else None,
-                duration_ms=(time.perf_counter() - start_t) * 1000,
-            )
-        except Exception as e:
-            return ToolResult(
-                success=False,
-                output=None,
-                error=str(e),
-                duration_ms=(time.perf_counter() - start_t) * 1000,
-            )
+        from jarvis.subsystems.system.windows_executor import WindowsExecutor
+        success, msg = WindowsExecutor.restart(delay_seconds=delay_seconds, abort=abort)
+        return ToolResult(
+            success=success,
+            output={"delay_seconds": delay_seconds, "abort": abort, "message": msg},
+            error=None if success else msg,
+            duration_ms=(time.perf_counter() - start_t) * 1000,
+        )
 
     def verify(self, arguments: Dict[str, Any], result: ToolResult) -> ToolVerification:
         if not result.success:
             return ToolVerification(verified=False, details=f"Restart command failed: {result.error}")
-        return ToolVerification(verified=True, details="Restart command executed and verified.")
+        return ToolVerification(verified=True, details=result.output.get("message", "Restart command executed and verified."))
 
 
 class TypeTextTool(BaseTool):
@@ -577,4 +561,451 @@ class TypeTextTool(BaseTool):
             verified=True,
             details=f"Successfully typed '{text_arg}' ({len(text_arg)} characters) into active window.",
         )
+
+
+class CloseApplicationTool(BaseTool):
+    """Closes an open application or process by name or window title."""
+    name = "close_application"
+    description = "Closes a running application or process by name or window title (e.g. 'Chrome', 'Notepad', 'Edge', 'VS Code')."
+    risk_level = RiskLevel.MEDIUM
+    parameters = {
+        "app_name": ToolParameter("app_name", "string", "Name, alias, or window title of application to close.", required=True),
+        "force": ToolParameter("force", "boolean", "Force terminate (kill) instead of graceful close.", required=False, default=False),
+    }
+
+    def execute(self, app_name: str, force: bool = False, **kwargs) -> ToolResult:
+        start_t = time.perf_counter()
+        from jarvis.subsystems.system.windows_executor import WindowsExecutor
+        success, msg = WindowsExecutor.close_app(app_name, force=force)
+        return ToolResult(
+            success=success,
+            output={"app_name": app_name, "message": msg},
+            error=None if success else msg,
+            duration_ms=(time.perf_counter() - start_t) * 1000,
+        )
+
+    def verify(self, arguments: Dict[str, Any], result: ToolResult) -> ToolVerification:
+        if not result.success:
+            return ToolVerification(verified=False, details=f"Failed to close application: {result.error}")
+        return ToolVerification(verified=True, details=f"Application '{arguments['app_name']}' closed and verified.")
+
+
+class FocusWindowTool(BaseTool):
+    """Brings a target application window to the foreground."""
+    name = "focus_window"
+    description = "Focuses and brings a window to the foreground by window title or process name."
+    risk_level = RiskLevel.LOW
+    parameters = {
+        "title_or_name": ToolParameter("title_or_name", "string", "Window title or process name to focus.", required=True),
+    }
+
+    def execute(self, title_or_name: Optional[str] = None, title: Optional[str] = None, **kwargs) -> ToolResult:
+        start_t = time.perf_counter()
+        target = title_or_name or title or kwargs.get("name", "")
+        from jarvis.subsystems.system.windows_executor import WindowsExecutor
+        success, msg = WindowsExecutor.focus_window(target)
+        return ToolResult(
+            success=success,
+            output={"target": target, "message": msg},
+            error=None if success else msg,
+            duration_ms=(time.perf_counter() - start_t) * 1000,
+        )
+
+    def verify(self, arguments: Dict[str, Any], result: ToolResult) -> ToolVerification:
+        return ToolVerification(verified=result.success, details=result.output.get("message", "") if result.success else str(result.error))
+
+
+class WindowControlTool(BaseTool):
+    """Minimizes, maximizes, or restores a window."""
+    name = "window_control"
+    description = "Controls window state: 'minimize', 'maximize', or 'restore' for a window matching title or process name."
+    risk_level = RiskLevel.LOW
+    parameters = {
+        "title_or_name": ToolParameter("title_or_name", "string", "Window title or process name.", required=True),
+        "state": ToolParameter("state", "string", "Desired state: 'minimize', 'maximize', or 'restore'.", required=True),
+    }
+
+    def execute(
+        self,
+        title_or_name: Optional[str] = None,
+        state: Optional[str] = None,
+        title: Optional[str] = None,
+        action: Optional[str] = None,
+        **kwargs,
+    ) -> ToolResult:
+        start_t = time.perf_counter()
+        target = title_or_name or title or kwargs.get("name", "")
+        desired_state = state or action or kwargs.get("window_state", "minimize")
+        from jarvis.subsystems.system.windows_executor import WindowsExecutor
+        success, msg = WindowsExecutor.set_window_state(target, desired_state)
+        return ToolResult(
+            success=success,
+            output={"target": target, "state": desired_state, "message": msg},
+            error=None if success else msg,
+            duration_ms=(time.perf_counter() - start_t) * 1000,
+        )
+
+    def verify(self, arguments: Dict[str, Any], result: ToolResult) -> ToolVerification:
+        return ToolVerification(verified=result.success, details=result.output.get("message", "") if result.success else str(result.error))
+
+
+class ListWindowsTool(BaseTool):
+    """Lists open desktop windows."""
+    name = "list_windows"
+    description = "Lists open desktop windows with title, PID, process name, and state."
+    risk_level = RiskLevel.LOW
+    parameters = {
+        "visible_only": ToolParameter("visible_only", "boolean", "List only visible windows.", required=False, default=True),
+    }
+
+    def execute(self, visible_only: bool = True, **kwargs) -> ToolResult:
+        start_t = time.perf_counter()
+        from jarvis.subsystems.system.windows_executor import WindowsExecutor
+        windows = WindowsExecutor.list_windows(visible_only=visible_only)
+        return ToolResult(
+            success=True,
+            output={"windows": windows, "count": len(windows)},
+            duration_ms=(time.perf_counter() - start_t) * 1000,
+        )
+
+    def verify(self, arguments: Dict[str, Any], result: ToolResult) -> ToolVerification:
+        return ToolVerification(verified=result.success, details=f"Found {result.output.get('count', 0)} open window(s).")
+
+
+class GetActiveWindowTool(BaseTool):
+    """Returns details about the currently active (foreground) window."""
+    name = "get_active_window"
+    description = "Detects the currently focused window on the desktop and returns title, PID, and process name."
+    risk_level = RiskLevel.LOW
+    parameters = {}
+
+    def execute(self, **kwargs) -> ToolResult:
+        start_t = time.perf_counter()
+        from jarvis.subsystems.system.windows_executor import WindowsExecutor
+        active = WindowsExecutor.get_active_window()
+        return ToolResult(
+            success=True,
+            output=active,
+            duration_ms=(time.perf_counter() - start_t) * 1000,
+        )
+
+    def verify(self, arguments: Dict[str, Any], result: ToolResult) -> ToolVerification:
+        title = result.output.get("title", "") if result.output else ""
+        return ToolVerification(verified=True, details=f"Active window: '{title}'" if title else "No active window title detected.")
+
+
+class StartProcessTool(BaseTool):
+    """Starts a process or executable with arguments."""
+    name = "start_process"
+    description = "Launches an executable or process with optional command line arguments."
+    risk_level = RiskLevel.MEDIUM
+    parameters = {
+        "command": ToolParameter("command", "string", "Executable name or path to execute.", required=True),
+        "arguments": ToolParameter("arguments", "list", "Optional list of command line arguments.", required=False, default=[]),
+    }
+
+    def execute(self, command: str, arguments: Optional[List[str]] = None, **kwargs) -> ToolResult:
+        start_t = time.perf_counter()
+        from jarvis.subsystems.system.windows_executor import WindowsExecutor
+        success, msg, pid = WindowsExecutor.start_process(command, arguments)
+        return ToolResult(
+            success=success,
+            output={"command": command, "pid": pid, "message": msg},
+            error=None if success else msg,
+            duration_ms=(time.perf_counter() - start_t) * 1000,
+        )
+
+    def verify(self, arguments: Dict[str, Any], result: ToolResult) -> ToolVerification:
+        return ToolVerification(verified=result.success, details=result.output.get("message", "") if result.success else str(result.error))
+
+
+class StopProcessTool(BaseTool):
+    """Stops or terminates a running process by PID or process name."""
+    name = "stop_process"
+    description = "Stops a running process by PID or process name."
+    risk_level = RiskLevel.HIGH
+    parameters = {
+        "process_identifier": ToolParameter("process_identifier", "string", "Process name or PID to terminate.", required=True),
+        "force": ToolParameter("force", "boolean", "Force kill process.", required=False, default=False),
+    }
+
+    def execute(self, process_identifier: str, force: bool = False, **kwargs) -> ToolResult:
+        start_t = time.perf_counter()
+        from jarvis.subsystems.system.windows_executor import WindowsExecutor
+        success, msg = WindowsExecutor.stop_process(process_identifier, force=force)
+        return ToolResult(
+            success=success,
+            output={"target": process_identifier, "message": msg},
+            error=None if success else msg,
+            duration_ms=(time.perf_counter() - start_t) * 1000,
+        )
+
+    def verify(self, arguments: Dict[str, Any], result: ToolResult) -> ToolVerification:
+        return ToolVerification(verified=result.success, details=result.output.get("message", "") if result.success else str(result.error))
+
+
+class MouseMoveTool(BaseTool):
+    """Moves the mouse cursor to desktop coordinates (x, y)."""
+    name = "mouse_move"
+    description = "Moves the mouse cursor to absolute desktop coordinates (x, y)."
+    risk_level = RiskLevel.LOW
+    parameters = {
+        "x": ToolParameter("x", "integer", "X coordinate on screen in pixels.", required=True),
+        "y": ToolParameter("y", "integer", "Y coordinate on screen in pixels.", required=True),
+    }
+
+    def execute(self, x: int, y: int, **kwargs) -> ToolResult:
+        start_t = time.perf_counter()
+        from jarvis.subsystems.system.windows_executor import WindowsExecutor
+        success, msg = WindowsExecutor.mouse_move(x, y)
+        return ToolResult(
+            success=success,
+            output={"x": x, "y": y, "message": msg},
+            duration_ms=(time.perf_counter() - start_t) * 1000,
+        )
+
+    def verify(self, arguments: Dict[str, Any], result: ToolResult) -> ToolVerification:
+        return ToolVerification(verified=True, details=f"Mouse moved to ({arguments['x']}, {arguments['y']}).")
+
+
+class MouseClickTool(BaseTool):
+    """Performs a single mouse click (left, right, middle)."""
+    name = "mouse_click"
+    description = "Performs a mouse click ('left', 'right', or 'middle') at current or optional coordinates (x, y)."
+    risk_level = RiskLevel.LOW
+    parameters = {
+        "button": ToolParameter("button", "string", "Button to click: 'left', 'right', or 'middle'.", required=False, default="left"),
+        "x": ToolParameter("x", "integer", "Optional X coordinate to click at.", required=False),
+        "y": ToolParameter("y", "integer", "Optional Y coordinate to click at.", required=False),
+    }
+
+    def execute(self, button: str = "left", x: Optional[int] = None, y: Optional[int] = None, **kwargs) -> ToolResult:
+        start_t = time.perf_counter()
+        from jarvis.subsystems.system.windows_executor import WindowsExecutor
+        coords = (int(x), int(y)) if x is not None and y is not None else None
+        success, msg = WindowsExecutor.mouse_click(button=button, coords=coords)
+        return ToolResult(
+            success=success,
+            output={"button": button, "coords": coords, "message": msg},
+            duration_ms=(time.perf_counter() - start_t) * 1000,
+        )
+
+    def verify(self, arguments: Dict[str, Any], result: ToolResult) -> ToolVerification:
+        return ToolVerification(verified=result.success, details=f"Executed {arguments.get('button', 'left')}-click.")
+
+
+class MouseDoubleClickTool(BaseTool):
+    """Performs a double click with the left mouse button."""
+    name = "mouse_double_click"
+    description = "Performs a double-click at current or optional coordinates (x, y)."
+    risk_level = RiskLevel.LOW
+    parameters = {
+        "x": ToolParameter("x", "integer", "Optional X coordinate to double click at.", required=False),
+        "y": ToolParameter("y", "integer", "Optional Y coordinate to double click at.", required=False),
+    }
+
+    def execute(self, x: Optional[int] = None, y: Optional[int] = None, **kwargs) -> ToolResult:
+        start_t = time.perf_counter()
+        from jarvis.subsystems.system.windows_executor import WindowsExecutor
+        coords = (int(x), int(y)) if x is not None and y is not None else None
+        success, msg = WindowsExecutor.mouse_double_click(coords=coords)
+        return ToolResult(
+            success=success,
+            output={"coords": coords, "message": msg},
+            duration_ms=(time.perf_counter() - start_t) * 1000,
+        )
+
+    def verify(self, arguments: Dict[str, Any], result: ToolResult) -> ToolVerification:
+        return ToolVerification(verified=result.success, details="Executed double-click.")
+
+
+class MouseRightClickTool(BaseTool):
+    """Performs a right click with the mouse."""
+    name = "mouse_right_click"
+    description = "Performs a right-click at current or optional coordinates (x, y)."
+    risk_level = RiskLevel.LOW
+    parameters = {
+        "x": ToolParameter("x", "integer", "Optional X coordinate to right click at.", required=False),
+        "y": ToolParameter("y", "integer", "Optional Y coordinate to right click at.", required=False),
+    }
+
+    def execute(self, x: Optional[int] = None, y: Optional[int] = None, **kwargs) -> ToolResult:
+        start_t = time.perf_counter()
+        from jarvis.subsystems.system.windows_executor import WindowsExecutor
+        coords = (int(x), int(y)) if x is not None and y is not None else None
+        success, msg = WindowsExecutor.mouse_click(button="right", coords=coords)
+        return ToolResult(
+            success=success,
+            output={"coords": coords, "message": msg},
+            duration_ms=(time.perf_counter() - start_t) * 1000,
+        )
+
+    def verify(self, arguments: Dict[str, Any], result: ToolResult) -> ToolVerification:
+        return ToolVerification(verified=result.success, details="Executed right-click.")
+
+
+class SendHotkeyTool(BaseTool):
+    """Sends keyboard shortcut or hotkey combination."""
+    name = "send_hotkey"
+    description = "Presses a keyboard hotkey combination (e.g. 'ctrl+c', 'ctrl+v', 'alt+tab', 'win+d', 'ctrl+s')."
+    risk_level = RiskLevel.LOW
+    parameters = {
+        "hotkey": ToolParameter("hotkey", "string", "Key combination string (e.g. 'ctrl+c', 'win+d', 'alt+tab').", required=True),
+    }
+
+    def execute(self, hotkey: str, **kwargs) -> ToolResult:
+        start_t = time.perf_counter()
+        from jarvis.subsystems.system.windows_executor import WindowsExecutor
+        success, msg = WindowsExecutor.send_hotkey(hotkey)
+        return ToolResult(
+            success=success,
+            output={"hotkey": hotkey, "message": msg},
+            error=None if success else msg,
+            duration_ms=(time.perf_counter() - start_t) * 1000,
+        )
+
+    def verify(self, arguments: Dict[str, Any], result: ToolResult) -> ToolVerification:
+        return ToolVerification(verified=result.success, details=f"Hotkey '{arguments['hotkey']}' executed.")
+
+
+class ClipboardTool(BaseTool):
+    """Reads or sets Windows clipboard content."""
+    name = "clipboard"
+    description = "Reads from ('get') or copies to ('set') the Windows clipboard."
+    risk_level = RiskLevel.LOW
+    parameters = {
+        "action": ToolParameter("action", "string", "Action to perform: 'get' or 'set'.", required=True),
+        "text": ToolParameter("text", "string", "Text to set on clipboard (required if action is 'set').", required=False, default=""),
+    }
+
+    def execute(self, action: str, text: Optional[str] = None, **kwargs) -> ToolResult:
+        start_t = time.perf_counter()
+        from jarvis.subsystems.system.windows_executor import WindowsExecutor
+        act = action.strip().lower()
+
+        if act == "get":
+            clip_text = WindowsExecutor.get_clipboard()
+            return ToolResult(
+                success=True,
+                output={"clipboard_text": clip_text, "text": clip_text, "length": len(clip_text)},
+                duration_ms=(time.perf_counter() - start_t) * 1000,
+            )
+        elif act == "set":
+            content = text or ""
+            ok = WindowsExecutor.set_clipboard(content)
+            return ToolResult(
+                success=ok,
+                output={"copied_length": len(content), "text": content, "success": ok},
+                error=None if ok else "Failed to write to Windows clipboard",
+                duration_ms=(time.perf_counter() - start_t) * 1000,
+            )
+        else:
+            return ToolResult(
+                success=False,
+                output=None,
+                error=f"Unknown clipboard action '{action}'. Choose 'get' or 'set'.",
+                duration_ms=(time.perf_counter() - start_t) * 1000,
+            )
+
+    def verify(self, arguments: Dict[str, Any], result: ToolResult) -> ToolVerification:
+        return ToolVerification(verified=result.success, details=f"Clipboard {arguments.get('action', 'action')} verified.")
+
+
+class ModifyFileTool(BaseTool):
+    """Modifies file content by appending text or updating lines."""
+    name = "modify_file"
+    description = "Appends content to or overwrites an existing file."
+    risk_level = RiskLevel.MEDIUM
+    parameters = {
+        "path": ToolParameter("path", "string", "Target file path.", required=True),
+        "content": ToolParameter("content", "string", "Text content to append or update.", required=True),
+        "mode": ToolParameter("mode", "string", "Write mode: 'append' or 'overwrite'.", required=False, default="append"),
+    }
+
+    def execute(self, path: str, content: str, mode: str = "append", **kwargs) -> ToolResult:
+        start_t = time.perf_counter()
+        from jarvis.subsystems.system.windows_executor import WindowsExecutor
+        success, msg = WindowsExecutor.modify_file(path, content, mode=mode)
+        return ToolResult(
+            success=success,
+            output={"path": path, "mode": mode, "message": msg},
+            error=None if success else msg,
+            duration_ms=(time.perf_counter() - start_t) * 1000,
+        )
+
+    def verify(self, arguments: Dict[str, Any], result: ToolResult) -> ToolVerification:
+        abs_p = os.path.abspath(arguments["path"])
+        exists = os.path.exists(abs_p)
+        return ToolVerification(
+            verified=exists and result.success,
+            details=f"File verified at '{abs_p}'." if exists else "Target file does not exist.",
+        )
+
+
+class VolumeControlTool(BaseTool):
+    """Controls Windows system master volume."""
+    name = "volume_control"
+    description = "Controls Windows system master volume (action: 'mute', 'unmute', 'up', 'down')."
+    risk_level = RiskLevel.LOW
+    parameters = {
+        "action": ToolParameter("action", "string", "Volume action: 'mute', 'unmute', 'up', or 'down'.", required=True),
+        "level": ToolParameter("level", "integer", "Optional percentage step amount (e.g. 5, 10).", required=False, default=2),
+    }
+
+    def execute(self, action: str, level: Optional[int] = None, **kwargs) -> ToolResult:
+        start_t = time.perf_counter()
+        from jarvis.subsystems.system.windows_executor import WindowsExecutor
+        success, msg = WindowsExecutor.set_volume(action, level=level)
+        return ToolResult(
+            success=success,
+            output={"action": action, "message": msg},
+            error=None if success else msg,
+            duration_ms=(time.perf_counter() - start_t) * 1000,
+        )
+
+    def verify(self, arguments: Dict[str, Any], result: ToolResult) -> ToolVerification:
+        return ToolVerification(verified=result.success, details=result.output.get("message", "") if result.success else str(result.error))
+
+
+class DisplayControlTool(BaseTool):
+    """Retrieves display information and monitor resolution."""
+    name = "display_control"
+    description = "Retrieves display information, screen resolution, and DPI metrics."
+    risk_level = RiskLevel.LOW
+    parameters = {}
+
+    def execute(self, **kwargs) -> ToolResult:
+        start_t = time.perf_counter()
+        from jarvis.subsystems.system.windows_executor import WindowsExecutor
+        info = WindowsExecutor.get_display_info()
+        return ToolResult(
+            success=True,
+            output=info,
+            duration_ms=(time.perf_counter() - start_t) * 1000,
+        )
+
+    def verify(self, arguments: Dict[str, Any], result: ToolResult) -> ToolVerification:
+        return ToolVerification(verified=True, details=f"Display resolution: {result.output.get('width')}x{result.output.get('height')}.")
+
+
+class SleepPCTool(BaseTool):
+    """Puts the Windows computer into sleep state."""
+    name = "sleep_pc"
+    description = "Puts the Windows workstation into sleep mode."
+    risk_level = RiskLevel.HIGH
+    parameters = {}
+
+    def execute(self, **kwargs) -> ToolResult:
+        start_t = time.perf_counter()
+        from jarvis.subsystems.system.windows_executor import WindowsExecutor
+        success, msg = WindowsExecutor.sleep_pc()
+        return ToolResult(
+            success=success,
+            output={"message": msg},
+            duration_ms=(time.perf_counter() - start_t) * 1000,
+        )
+
+    def verify(self, arguments: Dict[str, Any], result: ToolResult) -> ToolVerification:
+        return ToolVerification(verified=True, details="Sleep command executed.")
+
 

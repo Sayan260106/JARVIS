@@ -16,14 +16,31 @@ from jarvis.tools.safe_delete_tool import SafeDeleteProjectsTool
 from jarvis.tools.system_tools import (
     OpenFileTool,
     OpenApplicationTool,
+    CloseApplicationTool,
+    FocusWindowTool,
+    WindowControlTool,
+    ListWindowsTool,
+    GetActiveWindowTool,
+    StartProcessTool,
+    StopProcessTool,
+    MouseMoveTool,
+    MouseClickTool,
+    MouseDoubleClickTool,
+    MouseRightClickTool,
+    SendHotkeyTool,
+    ClipboardTool,
     SearchFilesTool,
     CreateFileTool,
+    ModifyFileTool,
     MoveFileTool,
     DeleteFileTool,
     RunCommandTool,
     TakeScreenshotTool,
     GetSystemInfoTool,
+    VolumeControlTool,
+    DisplayControlTool,
     LockPCTool,
+    SleepPCTool,
     ShutdownTool,
     RestartTool,
     TypeTextTool,
@@ -85,14 +102,31 @@ def get_default_registry() -> ToolRegistry:
     # System & Computer Control
     registry.register(OpenFileTool())
     registry.register(OpenApplicationTool())
+    registry.register(CloseApplicationTool())
+    registry.register(FocusWindowTool())
+    registry.register(WindowControlTool())
+    registry.register(ListWindowsTool())
+    registry.register(GetActiveWindowTool())
+    registry.register(StartProcessTool())
+    registry.register(StopProcessTool())
+    registry.register(MouseMoveTool())
+    registry.register(MouseClickTool())
+    registry.register(MouseDoubleClickTool())
+    registry.register(MouseRightClickTool())
+    registry.register(SendHotkeyTool())
+    registry.register(ClipboardTool())
     registry.register(SearchFilesTool())
     registry.register(CreateFileTool())
+    registry.register(ModifyFileTool())
     registry.register(MoveFileTool())
     registry.register(DeleteFileTool())
     registry.register(RunCommandTool())
     registry.register(TakeScreenshotTool())
     registry.register(GetSystemInfoTool())
+    registry.register(VolumeControlTool())
+    registry.register(DisplayControlTool())
     registry.register(LockPCTool())
+    registry.register(SleepPCTool())
     registry.register(ShutdownTool())
     registry.register(RestartTool())
     registry.register(TypeTextTool())
@@ -160,14 +194,31 @@ __all__ = [
     "SafeDeleteProjectsTool",
     "OpenFileTool",
     "OpenApplicationTool",
+    "CloseApplicationTool",
+    "FocusWindowTool",
+    "WindowControlTool",
+    "ListWindowsTool",
+    "GetActiveWindowTool",
+    "StartProcessTool",
+    "StopProcessTool",
+    "MouseMoveTool",
+    "MouseClickTool",
+    "MouseDoubleClickTool",
+    "MouseRightClickTool",
+    "SendHotkeyTool",
+    "ClipboardTool",
     "SearchFilesTool",
     "CreateFileTool",
+    "ModifyFileTool",
     "MoveFileTool",
     "DeleteFileTool",
     "RunCommandTool",
     "TakeScreenshotTool",
     "GetSystemInfoTool",
+    "VolumeControlTool",
+    "DisplayControlTool",
     "LockPCTool",
+    "SleepPCTool",
     "ShutdownTool",
     "RestartTool",
     "TypeTextTool",
