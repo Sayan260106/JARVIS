@@ -17,6 +17,7 @@ class SubsystemType(str, Enum):
     WEB = "WEB_INTELLIGENCE"           # Browser, Playwright, search, cloud LLM
     SYSTEM = "COMPUTER_CONTROL"        # Windows OS, PowerShell, processes, files
     DOCUMENT = "DOCUMENT_INTELLIGENCE" # PDF/DOCX/PPTX parsing, structure, chunking, retrieval
+    VISION = "VISION_CONTROL"          # Screen capture, OCR, visual grounding, visual computer use
 
 
 class IntentCategory(str, Enum):

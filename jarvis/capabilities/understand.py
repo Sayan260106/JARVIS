@@ -111,6 +111,28 @@ class DefaultUnderstandCapability(UnderstandCapability):
                 is_ambiguous=False,
             )
 
+        # 1.6 Visual Computer Control & UI Action detection (e.g. "Click the blue submit button")
+        visual_match = self._parse_visual_computer_action(cleaned)
+        if visual_match:
+            target = visual_match["target"]
+            action_type = visual_match.get("action_type", "click")
+            return TaskObjective(
+                raw_input=cleaned,
+                intent=IntentCategory.TASK_AUTOMATION,
+                description=f"Visually ground and execute {action_type} on '{target}' with closed-loop verification.",
+                target_criteria=f"Element '{target}' visually located and clicked, follow-up screenshot verified.",
+                context=context,
+                sub_goals=[
+                    "Capture pre-action screenshot",
+                    f"Visually ground '{target}' and map pixel coordinates",
+                    f"Execute mouse {action_type} on target",
+                    "Capture post-action verification screenshot",
+                    "Verify visual state transition",
+                ],
+                extracted_entities={"action": "visual_computer_action", "target": target, "action_type": action_type},
+                is_ambiguous=False,
+            )
+
         # 2. Windows Control Actions detection
         win_control = self._parse_windows_control_action(cleaned)
         if win_control:
@@ -418,6 +440,20 @@ class DefaultUnderstandCapability(UnderstandCapability):
                     "target_criteria": f"Application '{app_target}' launched and active.",
                 }
 
+        return None
+
+    def _parse_visual_computer_action(self, text: str) -> Optional[Dict[str, Any]]:
+        """Detects visual UI interaction requests (e.g. 'Click the blue submit button')."""
+        clean = text.strip()
+        m = re.search(
+            r"\b(?P<act>double\s+click|right\s+click|click|press|tap)\s+(?:on\s+)?(?:the\s+)?(?P<target>[a-zA-Z0-9_\-\s]+?(?:button|icon|control|link|box|field|tab|submit|run|cancel|close|save|debug))\b",
+            clean,
+            re.IGNORECASE,
+        )
+        if m:
+            act_raw = m.group("act").lower().replace(" ", "_")
+            target = m.group("target").strip()
+            return {"action_type": act_raw, "target": target}
         return None
 
 

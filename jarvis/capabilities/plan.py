@@ -69,6 +69,21 @@ class DefaultPlanCapability(PlanCapability):
             )
             return ExecutionPlan.create(objective=objective, steps=steps)
 
+        # 1.35 Visual Computer Control Action (e.g. "Click the blue submit button")
+        if entities.get("action") == "visual_computer_action":
+            target = entities.get("target", "Run")
+            action_type = entities.get("action_type", "click")
+            steps.append(
+                PlanStep.create(
+                    description=f"Visually locate, interact with '{target}', and verify change",
+                    subsystem=SubsystemType.VISION,
+                    tool_name="visual_computer_action",
+                    arguments={"target": target, "action_type": action_type},
+                    expected_outcome=f"Target '{target}' visually grounded, action executed, and state change verified.",
+                )
+            )
+            return ExecutionPlan.create(objective=objective, steps=steps)
+
         # 1.4 Academic Lecture Search & Exam Study workflow
         if entities.get("action") == "lecture_study_and_summarize":
             browser = entities.get("browser", "chrome")

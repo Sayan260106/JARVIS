@@ -93,6 +93,12 @@ from jarvis.tools.browser_tools import (
 )
 from jarvis.tools.vision_tools import (
     CaptureScreenTool,
+    CaptureRegionTool,
+    ScreenOCRTool,
+    DetectUIElementsTool,
+    VisualGroundingTool,
+    VisualComputerActionTool,
+    VisualVerifyTool,
     InspectScreenTool,
     LocateUIElementTool,
     ClickScreenElementTool,
@@ -202,6 +208,12 @@ def get_default_registry() -> ToolRegistry:
     registry.register(BrowserVerifyPDFTool())
     registry.register(BrowserVerifyNavigationTool())
     registry.register(CaptureScreenTool())
+    registry.register(CaptureRegionTool())
+    registry.register(ScreenOCRTool())
+    registry.register(DetectUIElementsTool())
+    registry.register(VisualGroundingTool())
+    registry.register(VisualComputerActionTool())
+    registry.register(VisualVerifyTool())
     registry.register(InspectScreenTool())
     registry.register(LocateUIElementTool())
     registry.register(ClickScreenElementTool())
@@ -236,6 +248,12 @@ def get_default_registry() -> ToolRegistry:
 
 
 __all__ = [
+    "CaptureRegionTool",
+    "ScreenOCRTool",
+    "DetectUIElementsTool",
+    "VisualGroundingTool",
+    "VisualComputerActionTool",
+    "VisualVerifyTool",
     "SessionRecallTool",
     "ManagePreferenceTool",
     "WorkflowMemoryTool",
