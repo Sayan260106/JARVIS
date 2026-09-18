@@ -56,6 +56,139 @@ class DefaultPlanCapability(PlanCapability):
             steps.extend([step_open, step_type, step_save])
             return ExecutionPlan.create(objective=objective, steps=steps)
 
+        # 1.4 Academic Lecture Search & Exam Study workflow
+        if entities.get("action") == "lecture_study_and_summarize":
+            browser = entities.get("browser", "chrome")
+            profile = entities.get("profile", "institutional")
+            course = entities.get("course", "ECE")
+            materials = entities.get("materials", ["Lecture 3", "Lecture 4"])
+            exam_name = entities.get("exam_name", "Upcoming Exam")
+
+            # 1. Browser: Open
+            step_open = PlanStep.create(
+                description=f"Launch {browser.title()} with {profile} profile",
+                subsystem=SubsystemType.WEB,
+                tool_name="browser_open",
+                arguments={"channel": browser, "profile_name": profile},
+                expected_outcome="Browser launched and institutional profile active.",
+                depends_on=[],
+            )
+            # 2. Browser: Detect session
+            step_auth = PlanStep.create(
+                description="Detect Google session authentication state",
+                subsystem=SubsystemType.WEB,
+                tool_name="browser_detect_session",
+                arguments={"service": "google"},
+                expected_outcome="Session authenticated.",
+                depends_on=[step_open.step_id],
+            )
+            # 3. Browser: Navigate to Classroom
+            step_nav = PlanStep.create(
+                description=f"Navigate to {course} course in Google Classroom",
+                subsystem=SubsystemType.WEB,
+                tool_name="browser_navigate",
+                arguments={"url": "https://classroom.google.com"},
+                expected_outcome="Course portal loaded.",
+                depends_on=[step_auth.step_id],
+            )
+            # 4. Browser: Find PDFs
+            step_detect = PlanStep.create(
+                description=f"Locate PDFs for {', '.join(materials)}",
+                subsystem=SubsystemType.WEB,
+                tool_name="browser_detect_pdfs",
+                arguments={"filter_text": materials[0] if materials else "Lecture"},
+                expected_outcome="Target lecture PDFs detected.",
+                depends_on=[step_nav.step_id],
+            )
+
+            steps.extend([step_open, step_auth, step_nav, step_detect])
+            prev_dep = step_detect.step_id
+
+            downloaded_paths = []
+            for mat in materials:
+                safe_name = mat.replace(" ", "_")
+                dest_path = f"downloads/{safe_name}.pdf"
+                downloaded_paths.append(dest_path)
+                step_dl = PlanStep.create(
+                    description=f"Download {mat} PDF to local storage",
+                    subsystem=SubsystemType.WEB,
+                    tool_name="browser_download",
+                    arguments={"url": f"https://classroom.google.com/download/{safe_name}.pdf", "download_path": dest_path},
+                    expected_outcome=f"{mat} downloaded successfully.",
+                    depends_on=[prev_dep],
+                )
+                steps.append(step_dl)
+                prev_dep = step_dl.step_id
+
+            # Document Intelligence: Read PDFs
+            for idx, mat in enumerate(materials):
+                path = downloaded_paths[idx]
+                step_read = PlanStep.create(
+                    description=f"Parse {mat} PDF and extract document structure",
+                    subsystem=SubsystemType.DOCUMENT,
+                    tool_name="document_read",
+                    arguments={"file_path": path, "format_hint": "pdf"},
+                    expected_outcome=f"{mat} parsed with headings and elements.",
+                    depends_on=[prev_dep],
+                )
+                steps.append(step_read)
+                prev_dep = step_read.step_id
+
+            # Document Intelligence: Structure Chunking
+            step_chunk = PlanStep.create(
+                description=f"Chunk {materials[0]} with heading hierarchy preservation",
+                subsystem=SubsystemType.DOCUMENT,
+                tool_name="document_chunk",
+                arguments={"file_path": downloaded_paths[0]},
+                expected_outcome="Structure-aware chunks generated.",
+                depends_on=[prev_dep],
+            )
+            steps.append(step_chunk)
+            prev_dep = step_chunk.step_id
+
+            # Document Intelligence: Vector Indexing
+            step_index = PlanStep.create(
+                description=f"Index {materials[0]} into semantic vector store",
+                subsystem=SubsystemType.DOCUMENT,
+                tool_name="document_index",
+                arguments={"file_path": downloaded_paths[0]},
+                expected_outcome="Document chunks embedded and indexed.",
+                depends_on=[prev_dep],
+            )
+            steps.append(step_index)
+            prev_dep = step_index.step_id
+
+            # Document Intelligence: Extract Important Topics
+            step_topics = PlanStep.create(
+                description=f"Extract high-yield topics and key concepts from {materials[0]}",
+                subsystem=SubsystemType.DOCUMENT,
+                tool_name="document_extract_topics",
+                arguments={"file_path": downloaded_paths[0], "top_n": 8},
+                expected_outcome="Key topics and concepts identified.",
+                depends_on=[prev_dep],
+            )
+            steps.append(step_topics)
+            prev_dep = step_topics.step_id
+
+            # Document Intelligence: Exam-Oriented Summarization & Notes
+            safe_course = course.replace(" ", "_")
+            notes_file = f"notes/{safe_course}_Exam_Revision_{'_and_'.join([m.replace(' ', '_') for m in materials])}.md"
+            step_exam = PlanStep.create(
+                description=f"Generate exam-oriented summary and study notes for {exam_name}",
+                subsystem=SubsystemType.DOCUMENT,
+                tool_name="document_exam_prep",
+                arguments={
+                    "file_paths": downloaded_paths,
+                    "course_or_subject": course,
+                    "save_to_path": notes_file,
+                },
+                expected_outcome=f"Exam revision pack compiled and saved to '{notes_file}'.",
+                depends_on=[prev_dep],
+            )
+            steps.append(step_exam)
+
+            return ExecutionPlan.create(objective=objective, steps=steps)
+
         # 1.5 Academic Classroom Lecture Extraction workflow
         if entities.get("action") == "classroom_lecture_extraction":
             browser = entities.get("browser", "chrome")

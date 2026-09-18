@@ -105,6 +105,19 @@ from jarvis.tools.memory_tools import (
     ManageWorkingMemoryTool,
 )
 from jarvis.tools.orchestration_tools import RunComplexTaskTool
+from jarvis.tools.document_tools import (
+    DocumentReadTool,
+    DocumentChunkTool,
+    DocumentIndexTool,
+    DocumentRetrieveTool,
+    DocumentSummarizeTool,
+    DocumentExtractTopicsTool,
+    DocumentGenerateNotesTool,
+    DocumentGenerateQuestionsTool,
+    DocumentAnswerQuestionTool,
+    DocumentCompareTool,
+    DocumentExamPrepTool,
+)
 
 
 def get_default_registry() -> ToolRegistry:
@@ -197,10 +210,33 @@ def get_default_registry() -> ToolRegistry:
     # External Action (Level 2) & Safe Destructive (Level 3)
     registry.register(SendEmailTool())
     registry.register(SafeDeleteProjectsTool())
+    # Document Intelligence Tools
+    registry.register(DocumentReadTool())
+    registry.register(DocumentChunkTool())
+    registry.register(DocumentIndexTool())
+    registry.register(DocumentRetrieveTool())
+    registry.register(DocumentSummarizeTool())
+    registry.register(DocumentExtractTopicsTool())
+    registry.register(DocumentGenerateNotesTool())
+    registry.register(DocumentGenerateQuestionsTool())
+    registry.register(DocumentAnswerQuestionTool())
+    registry.register(DocumentCompareTool())
+    registry.register(DocumentExamPrepTool())
     return registry
 
 
 __all__ = [
+    "DocumentReadTool",
+    "DocumentChunkTool",
+    "DocumentIndexTool",
+    "DocumentRetrieveTool",
+    "DocumentSummarizeTool",
+    "DocumentExtractTopicsTool",
+    "DocumentGenerateNotesTool",
+    "DocumentGenerateQuestionsTool",
+    "DocumentAnswerQuestionTool",
+    "DocumentCompareTool",
+    "DocumentExamPrepTool",
     "BaseTool",
     "RiskLevel",
     "PermissionLevel",

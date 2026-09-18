@@ -12,10 +12,11 @@ import uuid
 
 
 class SubsystemType(str, Enum):
-    """The three core execution subsystems in JARVIS roadmap."""
-    LOCAL = "LOCAL_INTELLIGENCE"    # Ollama, local SLMs, embeddings, vector store
-    WEB = "WEB_INTELLIGENCE"        # Browser, Playwright, search, cloud LLM
-    SYSTEM = "COMPUTER_CONTROL"     # Windows OS, PowerShell, processes, files
+    """The execution subsystems in JARVIS roadmap."""
+    LOCAL = "LOCAL_INTELLIGENCE"       # Ollama, local SLMs, embeddings, vector store
+    WEB = "WEB_INTELLIGENCE"           # Browser, Playwright, search, cloud LLM
+    SYSTEM = "COMPUTER_CONTROL"        # Windows OS, PowerShell, processes, files
+    DOCUMENT = "DOCUMENT_INTELLIGENCE" # PDF/DOCX/PPTX parsing, structure, chunking, retrieval
 
 
 class IntentCategory(str, Enum):

@@ -51,6 +51,30 @@ class DefaultUnderstandCapability(UnderstandCapability):
                 is_ambiguous=False,
             )
 
+        # 1.4 Academic Lecture Search & Exam Study workflow
+        study_match = self._parse_document_study_workflow(cleaned)
+        if study_match:
+            sub_goals = [
+                f"Locate requested lecture materials ({', '.join(study_match['materials'])})",
+                f"Download lecture PDFs to local workspace",
+                f"Parse document structure and extract text",
+                f"Chunk document preserving section hierarchy",
+                f"Index chunks for vector retrieval",
+                f"Analyze key concepts and high-yield topics",
+                f"Generate exam-oriented summary ({study_match['exam_name']})",
+                f"Compile and return structured exam revision notes",
+            ]
+            return TaskObjective(
+                raw_input=cleaned,
+                intent=IntentCategory.TASK_AUTOMATION,
+                description=f"Find {', '.join(study_match['materials'])} PDFs, analyze key concepts, and generate structured notes for {study_match['exam_name']}.",
+                target_criteria=f"Lecture PDFs parsed, high-yield concepts extracted, and {study_match['exam_name']} revision pack generated.",
+                context=context,
+                sub_goals=sub_goals,
+                extracted_entities=study_match,
+                is_ambiguous=False,
+            )
+
         # 1.5 Academic Classroom Lecture Extraction workflow
         classroom_match = self._parse_classroom_workflow(cleaned)
         if classroom_match:
@@ -146,6 +170,60 @@ class DefaultUnderstandCapability(UnderstandCapability):
                 "text": m.group(2).strip(),
                 "file_name": m.group(3).strip(),
             }
+
+    def _parse_document_study_workflow(self, text: str) -> Dict[str, Any] | None:
+        """Parses complete document research and exam study workflows like:
+        'Find Lecture 3 and 4 PDF and summarize them for my upcoming exam.'
+        """
+        lower = text.lower()
+        has_study_goal = any(kw in lower for kw in ["summariz", "exam", "notes", "study", "revision", "explain"])
+        has_material = any(kw in lower for kw in ["lecture", "pdf", "docx", "slides", "notes", "material", "document"])
+
+        if has_study_goal and has_material:
+            profile = "institutional"
+            browser = "chrome"
+
+            # Course name detection
+            course = "ECE"
+            matches = re.findall(r"(?:open|enter|go\s+to|in|for)\s+([A-Za-z0-9_\-]+)\s+(?:classroom|course|class)", text, re.IGNORECASE)
+            course_candidates = [m for m in matches if m.lower() not in ("google", "my", "the")]
+            if course_candidates:
+                course = course_candidates[0].strip()
+            else:
+                m_course2 = re.search(r"\b([A-Z]{2,6})\b", text)
+                if m_course2 and m_course2.group(1) not in ("PDF", "DOCX", "PPTX", "TXT"):
+                    course = m_course2.group(1).strip()
+
+            # Target materials detection (e.g. "Lecture 3 and 4")
+            materials = []
+            m_compound = re.search(r"lecture(?:s)?\s*(\d+)\s*(?:and|&|,)\s*(\d+)", text, re.IGNORECASE)
+            if m_compound:
+                materials = [f"Lecture {m_compound.group(1)}", f"Lecture {m_compound.group(2)}"]
+            else:
+                m_lectures = re.findall(r"lecture\s*\d+", text, re.IGNORECASE)
+                if m_lectures:
+                    materials = [m.title() for m in m_lectures]
+                else:
+                    materials = ["Lecture 3", "Lecture 4"]
+
+            # Exam or goal
+            exam_name = "Upcoming Exam"
+            m_exam = re.search(r"(?:for\s+(?:my\s+)?|upcoming\s+)([a-zA-Z0-9_\-\s]+?\s+exam)", text, re.IGNORECASE)
+            if m_exam:
+                exam_name = m_exam.group(1).strip().title()
+
+            return {
+                "action": "lecture_study_and_summarize",
+                "browser": browser,
+                "profile": profile,
+                "service": "Google Classroom",
+                "course": course,
+                "materials": materials,
+                "target_type": "pdf",
+                "goal": "exam_summary",
+                "exam_name": exam_name,
+            }
+        return None
 
     def _parse_classroom_workflow(self, text: str) -> Dict[str, Any] | None:
         """Parses compound academic workflows like:
