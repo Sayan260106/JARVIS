@@ -19,6 +19,7 @@ from jarvis.orchestrator.schemas import (
 )
 from jarvis.orchestrator.dag import TaskDAG
 from jarvis.subsystems.memory.working_memory import WorkingMemory
+from jarvis.orchestrator.marine_prediction_workflow import MarinePredictionWorkflow
 
 
 class PresentationPrepWorkflow:

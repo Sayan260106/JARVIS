@@ -18,8 +18,10 @@ from jarvis.tools.registry import ToolRegistry
 from jarvis.tools import get_default_registry
 from jarvis.subsystems.local.ollama_client import OllamaClient
 from jarvis.core.llm_provider import LLMProvider, ModelRole
+from jarvis.core.agent_loop import AgentLoop
 from jarvis.capabilities.reasoning.intent_analyzer import IntentAnalyzer, IntentType
 from jarvis.capabilities.reasoning.reasoning_pipeline import ReasoningPipeline
+from jarvis.orchestrator.marine_prediction_workflow import MarinePredictionWorkflow
 
 
 @dataclass
@@ -55,6 +57,13 @@ class AgentToolExecutor:
             registry=self.registry,
             tool_executor=self,
         )
+        self.agent_loop = AgentLoop(
+            registry=self.registry,
+            permission_system=self.permissions,
+            llm_provider=self.llm_provider,
+            intent_analyzer=self.intent_analyzer,
+        )
+
 
 
     def build_system_prompt(self) -> str:
@@ -205,6 +214,17 @@ class AgentToolExecutor:
                 final_response=executed_plan.final_summary,
             )
 
+        if MarinePredictionWorkflow.is_marine_prediction_goal(user_prompt):
+            plan = MarinePredictionWorkflow.build_plan()
+            task = self.agent_loop.run(user_prompt, initial_plan=plan, print_visual_table=True)
+            report = task.state.get("generated_report", f"Task {task.task_id} completed successfully.")
+            return AgentTurnResult(
+                tool_called=True,
+                tool_name="agent_loop_marine_workflow",
+                arguments={"task_id": task.task_id},
+                final_response=report,
+            )
+
         if GoalPlanner.is_complex_project_goal(user_prompt):
             planner = GoalPlanner(registry=self.registry, tool_executor=self)
             outcome = planner.execute_complex_project_workflow(user_prompt)
@@ -215,7 +235,9 @@ class AgentToolExecutor:
                 final_response=outcome["summary"],
             )
 
+
         history = list(conversation_history or [])
+
         history.append({"role": "user", "content": user_prompt})
 
         system_prompt = self.build_system_prompt()
