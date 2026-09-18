@@ -51,6 +51,29 @@ class DefaultUnderstandCapability(UnderstandCapability):
                 is_ambiguous=False,
             )
 
+        # 1.5 Academic Classroom Lecture Extraction workflow
+        classroom_match = self._parse_classroom_workflow(cleaned)
+        if classroom_match:
+            sub_goals = [
+                f"Launch {classroom_match['browser'].title()} using {classroom_match['profile']} profile",
+                f"Detect existing authentication session for {classroom_match['service']}",
+                f"Navigate to {classroom_match['service']}",
+                f"Open course '{classroom_match['course']}'",
+                f"Inspect course materials and locate {', '.join(classroom_match['materials'])} PDFs",
+                f"Download lecture PDFs to local storage",
+                f"Verify PDF file integrity (%PDF magic bytes)",
+            ]
+            return TaskObjective(
+                raw_input=cleaned,
+                intent=IntentCategory.TASK_AUTOMATION,
+                description=f"Open Google Classroom in {classroom_match['profile']} profile, locate {classroom_match['course']} course, and extract {', '.join(classroom_match['materials'])} PDFs.",
+                target_criteria=f"Course '{classroom_match['course']}' located and requested lecture PDFs downloaded and verified.",
+                context=context,
+                sub_goals=sub_goals,
+                extracted_entities=classroom_match,
+                is_ambiguous=False,
+            )
+
         # 2. Windows Control Actions detection
         win_control = self._parse_windows_control_action(cleaned)
         if win_control:
@@ -124,6 +147,48 @@ class DefaultUnderstandCapability(UnderstandCapability):
                 "file_name": m.group(3).strip(),
             }
 
+    def _parse_classroom_workflow(self, text: str) -> Dict[str, Any] | None:
+        """Parses compound academic workflows like:
+        'Open Chrome, go to my institutional profile, open Google Classroom, open ECE Classroom, find Lecture 3 and 4 PDF.'
+        """
+        lower = text.lower()
+        if "classroom" in lower and any(kw in lower for kw in ["lecture", "pdf", "course", "notes", "material"]):
+            profile = "institutional" if any(kw in lower for kw in ["institutional", "college", "university", "academic"]) else "Default"
+            browser = "chrome" if "chrome" in lower else "msedge"
+
+            # Detect course name: e.g. "ECE Classroom" or "ECE" or "DBMS"
+            # Detect course name: e.g. "ECE Classroom" or "ECE" or "DBMS"
+            course = "ECE"
+            matches = re.findall(r"(?:open|enter|go\s+to)\s+([A-Za-z0-9_\-]+)\s+classroom", text, re.IGNORECASE)
+            course_candidates = [m for m in matches if m.lower() != "google"]
+            if course_candidates:
+                course = course_candidates[0].strip()
+            else:
+                m_course2 = re.search(r"(?:course|class)\s+([A-Za-z0-9_\-]+)", text, re.IGNORECASE)
+                if m_course2:
+                    course = m_course2.group(1).strip()
+
+            # Detect target lectures/materials (e.g. "Lecture 3 and 4" or "Lecture 3, Lecture 4")
+            materials = []
+            m_compound = re.search(r"lecture(?:s)?\s*(\d+)\s*(?:and|&|,)\s*(\d+)", text, re.IGNORECASE)
+            if m_compound:
+                materials = [f"Lecture {m_compound.group(1)}", f"Lecture {m_compound.group(2)}"]
+            else:
+                m_lectures = re.findall(r"lecture\s*\d+", text, re.IGNORECASE)
+                if m_lectures:
+                    materials = [m.title() for m in m_lectures]
+                else:
+                    materials = ["Lecture 3", "Lecture 4"]
+
+            return {
+                "action": "classroom_lecture_extraction",
+                "browser": browser,
+                "profile": profile,
+                "service": "Google Classroom",
+                "course": course,
+                "materials": materials,
+                "target_type": "pdf",
+            }
         return None
 
     def _parse_windows_control_action(self, text: str) -> Dict[str, Any] | None:

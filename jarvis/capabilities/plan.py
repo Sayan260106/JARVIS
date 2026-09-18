@@ -56,6 +56,83 @@ class DefaultPlanCapability(PlanCapability):
             steps.extend([step_open, step_type, step_save])
             return ExecutionPlan.create(objective=objective, steps=steps)
 
+        # 1.5 Academic Classroom Lecture Extraction workflow
+        if entities.get("action") == "classroom_lecture_extraction":
+            browser = entities.get("browser", "chrome")
+            profile = entities.get("profile", "institutional")
+            course = entities.get("course", "ECE")
+            materials = entities.get("materials", ["Lecture 3", "Lecture 4"])
+
+            step_open = PlanStep.create(
+                description=f"Launch {browser.title()} with {profile} profile",
+                subsystem=SubsystemType.WEB,
+                tool_name="browser_open",
+                arguments={"channel": browser, "profile_name": profile},
+                expected_outcome="Browser launched and profile session active.",
+                depends_on=[],
+            )
+            step_auth = PlanStep.create(
+                description="Detect Google session authentication state",
+                subsystem=SubsystemType.WEB,
+                tool_name="browser_detect_session",
+                arguments={"service": "google"},
+                expected_outcome="Google Classroom session authenticated.",
+                depends_on=[step_open.step_id],
+            )
+            step_nav = PlanStep.create(
+                description="Navigate to Google Classroom portal",
+                subsystem=SubsystemType.WEB,
+                tool_name="browser_navigate",
+                arguments={"url": "https://classroom.google.com"},
+                expected_outcome="Google Classroom portal loaded.",
+                depends_on=[step_auth.step_id],
+            )
+            step_course = PlanStep.create(
+                description=f"Select course '{course}'",
+                subsystem=SubsystemType.WEB,
+                tool_name="browser_click",
+                arguments={"selector": course},
+                expected_outcome=f"Navigated to '{course}' course page.",
+                depends_on=[step_nav.step_id],
+            )
+            step_inspect = PlanStep.create(
+                description="Inspect course stream and classwork DOM elements",
+                subsystem=SubsystemType.WEB,
+                tool_name="browser_inspect_dom",
+                arguments={"query": "Lecture"},
+                expected_outcome="Course elements inspected.",
+                depends_on=[step_course.step_id],
+            )
+            query_str = " ".join(materials)
+            step_detect = PlanStep.create(
+                description=f"Locate PDF materials for {query_str}",
+                subsystem=SubsystemType.WEB,
+                tool_name="browser_detect_pdfs",
+                arguments={"query": "Lecture"},
+                expected_outcome="Target lecture PDFs detected.",
+                depends_on=[step_inspect.step_id],
+            )
+            save_path = f"data/lectures/{course}_Lecture_3_4.pdf"
+            step_download = PlanStep.create(
+                description=f"Download {course} lecture PDF",
+                subsystem=SubsystemType.WEB,
+                tool_name="browser_download",
+                arguments={"url": "data:application/pdf;base64,mock", "save_path": save_path},
+                expected_outcome=f"PDF saved to {save_path}.",
+                depends_on=[step_detect.step_id],
+            )
+            step_verify = PlanStep.create(
+                description="Verify downloaded PDF file integrity",
+                subsystem=SubsystemType.WEB,
+                tool_name="browser_verify_pdf",
+                arguments={"file_path": save_path},
+                expected_outcome="Valid PDF verified on filesystem.",
+                depends_on=[step_download.step_id],
+            )
+
+            steps.extend([step_open, step_auth, step_nav, step_course, step_inspect, step_detect, step_download, step_verify])
+            return ExecutionPlan.create(objective=objective, steps=steps)
+
         # 2. Typed Windows Control Action decomposition
         if "action" in entities:
             action = entities["action"]

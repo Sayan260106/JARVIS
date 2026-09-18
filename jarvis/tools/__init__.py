@@ -75,12 +75,21 @@ from jarvis.tools.browser_tools import (
     BrowserNavigateTool,
     BrowserClickTool,
     BrowserTypeTool,
+    BrowserSelectTool,
+    BrowserUploadTool,
     BrowserScrollTool,
     BrowserExtractTool,
     BrowserScreenshotTool,
     BrowserBackTool,
     BrowserCloseTabTool,
     BrowserDownloadTool,
+    BrowserGetStateTool,
+    BrowserInspectDOMTool,
+    BrowserManageTabsTool,
+    BrowserDetectPDFsTool,
+    BrowserDetectSessionTool,
+    BrowserVerifyPDFTool,
+    BrowserVerifyNavigationTool,
 )
 from jarvis.tools.vision_tools import (
     CaptureScreenTool,
@@ -153,19 +162,28 @@ def get_default_registry() -> ToolRegistry:
     # Web & Auxiliary Cloud Intelligence
     registry.register(BrowserSearchTool())
     registry.register(ResearchTopicTool())
-    # Playwright Browser Automation (Edge / Chromium)
+    # Playwright Browser Automation (Chrome / Edge / Chromium)
     registry.register(BrowserOpenTool())
     registry.register(BrowserNewTabTool())
     registry.register(BrowserSearchPageTool())
     registry.register(BrowserNavigateTool())
     registry.register(BrowserClickTool())
     registry.register(BrowserTypeTool())
+    registry.register(BrowserSelectTool())
+    registry.register(BrowserUploadTool())
     registry.register(BrowserScrollTool())
     registry.register(BrowserExtractTool())
     registry.register(BrowserScreenshotTool())
     registry.register(BrowserBackTool())
     registry.register(BrowserCloseTabTool())
     registry.register(BrowserDownloadTool())
+    registry.register(BrowserGetStateTool())
+    registry.register(BrowserInspectDOMTool())
+    registry.register(BrowserManageTabsTool())
+    registry.register(BrowserDetectPDFsTool())
+    registry.register(BrowserDetectSessionTool())
+    registry.register(BrowserVerifyPDFTool())
+    registry.register(BrowserVerifyNavigationTool())
     registry.register(CaptureScreenTool())
     registry.register(InspectScreenTool())
     registry.register(LocateUIElementTool())
@@ -236,6 +254,27 @@ __all__ = [
     "DetectDuplicatesTool",
     "BatchOrganizeFilesTool",
     "BrowserSearchTool",
+    "BrowserOpenTool",
+    "BrowserNewTabTool",
+    "BrowserSearchPageTool",
+    "BrowserNavigateTool",
+    "BrowserClickTool",
+    "BrowserTypeTool",
+    "BrowserSelectTool",
+    "BrowserUploadTool",
+    "BrowserScrollTool",
+    "BrowserExtractTool",
+    "BrowserScreenshotTool",
+    "BrowserBackTool",
+    "BrowserCloseTabTool",
+    "BrowserDownloadTool",
+    "BrowserGetStateTool",
+    "BrowserInspectDOMTool",
+    "BrowserManageTabsTool",
+    "BrowserDetectPDFsTool",
+    "BrowserDetectSessionTool",
+    "BrowserVerifyPDFTool",
+    "BrowserVerifyNavigationTool",
     "CaptureScreenTool",
     "InspectScreenTool",
     "LocateUIElementTool",
