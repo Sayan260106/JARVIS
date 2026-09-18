@@ -17,10 +17,13 @@ from typing import Any, Dict, List, Optional
 
 class ModelRole(str, Enum):
     """Functional role taxonomy for specialized local and remote models."""
-    FAST = "FAST"                 # Fast SLM for intent classification & routing
+    FAST = "FAST"                 # Small local model for simple commands & low-latency classification
     REASONING = "REASONING"       # Reasoning-capable model for planning & complex task orchestration
+    DOCUMENT = "DOCUMENT"         # Local LLM for document summarization, extraction, and exam prep
+    CODING = "CODING"             # Dedicated coding model for scripts, debugging, and code generation
     VISION = "VISION"             # Multimodal vision model for screen/image analysis
     EMBEDDING = "EMBEDDING"       # Embedding model for semantic vector memory retrieval
+    CLOUD = "CLOUD"               # Optional high-parameter cloud model for heavy research/reasoning
 
 
 class LLMProvider(ABC):

@@ -118,6 +118,7 @@ from jarvis.tools.document_tools import (
     DocumentCompareTool,
     DocumentExamPrepTool,
 )
+from jarvis.tools.model_tools import ModelRouteInspectTool
 
 
 def get_default_registry() -> ToolRegistry:
@@ -222,10 +223,13 @@ def get_default_registry() -> ToolRegistry:
     registry.register(DocumentAnswerQuestionTool())
     registry.register(DocumentCompareTool())
     registry.register(DocumentExamPrepTool())
+    # Model Routing Inspection
+    registry.register(ModelRouteInspectTool())
     return registry
 
 
 __all__ = [
+    "ModelRouteInspectTool",
     "DocumentReadTool",
     "DocumentChunkTool",
     "DocumentIndexTool",
