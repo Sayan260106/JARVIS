@@ -534,3 +534,47 @@ class RestartTool(BaseTool):
         if not result.success:
             return ToolVerification(verified=False, details=f"Restart command failed: {result.error}")
         return ToolVerification(verified=True, details="Restart command executed and verified.")
+
+
+class TypeTextTool(BaseTool):
+    """Types text keystrokes into the active focused window on Windows."""
+    name = "type_text"
+    description = "Types text characters into the currently focused window (e.g. Notepad, text editor, terminal)."
+    risk_level = RiskLevel.LOW
+    parameters = {
+        "text": ToolParameter("text", "string", "Text string to type into the active window.", required=True),
+        "delay_after": ToolParameter("delay_after", "number", "Delay in seconds after typing (default 0.1s).", required=False, default=0.1),
+    }
+
+    def execute(self, text: str, delay_after: float = 0.1, **kwargs) -> ToolResult:
+        start_t = time.perf_counter()
+        try:
+            from jarvis.subsystems.vision.desktop_controller import DesktopController
+            controller = DesktopController()
+            time.sleep(0.05)
+            success = controller.type_text(text)
+            if delay_after > 0:
+                time.sleep(delay_after)
+            return ToolResult(
+                success=success,
+                output={"text": text, "length": len(text), "typed": success},
+                error=None if success else "Failed to send keystrokes via desktop controller",
+                duration_ms=(time.perf_counter() - start_t) * 1000,
+            )
+        except Exception as e:
+            return ToolResult(
+                success=False,
+                output=None,
+                error=str(e),
+                duration_ms=(time.perf_counter() - start_t) * 1000,
+            )
+
+    def verify(self, arguments: Dict[str, Any], result: ToolResult) -> ToolVerification:
+        if not result.success:
+            return ToolVerification(verified=False, details=f"Typing failed: {result.error}")
+        text_arg = arguments.get("text", "")
+        return ToolVerification(
+            verified=True,
+            details=f"Successfully typed '{text_arg}' ({len(text_arg)} characters) into active window.",
+        )
+

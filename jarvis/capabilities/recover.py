@@ -35,40 +35,23 @@ class DefaultRecoverCapability(RecoverCapability):
 
         # Strategy 1: Attempt self-correction / parameter adaptation on first retry
         if step.retry_count == 1:
-            adapted_step = PlanStep(
-                step_id=step.step_id,
-                description=f"{step.description} (Retry with fallback params)",
-                subsystem=step.subsystem,
-                tool_name=step.tool_name,
-                arguments={**step.arguments, "_retry_mode": "strict"},
-                expected_outcome=step.expected_outcome,
-                status=StepStatus.PENDING,
-                retry_count=step.retry_count,
-                max_retries=step.max_retries,
-            )
+            step.arguments = {**step.arguments, "_retry_mode": "strict"}
+            step.status = StepStatus.PENDING
             return RecoveryAction(
                 strategy=RecoveryStrategy.RETRY_WITH_ADAPTED_ARGS,
                 explanation="Attempting retry with adjusted parameters.",
-                modified_step=adapted_step,
+                modified_step=step,
             )
 
         # Strategy 2: Switch to alternate fallback tool if available
         if step.retry_count == 2:
-            adapted_step = PlanStep(
-                step_id=step.step_id,
-                description=f"{step.description} (Fallback tool route)",
-                subsystem=step.subsystem,
-                tool_name=f"{step.tool_name}_fallback" if not step.tool_name.endswith("_fallback") else step.tool_name,
-                arguments=step.arguments,
-                expected_outcome=step.expected_outcome,
-                status=StepStatus.PENDING,
-                retry_count=step.retry_count,
-                max_retries=step.max_retries,
-            )
+            if not step.tool_name.endswith("_fallback"):
+                step.tool_name = f"{step.tool_name}_fallback"
+            step.status = StepStatus.PENDING
             return RecoveryAction(
                 strategy=RecoveryStrategy.SWITCH_TOOL,
                 explanation="Switching to alternative execution strategy or tool route.",
-                modified_step=adapted_step,
+                modified_step=step,
             )
 
         # Strategy 3: Structural Replan
@@ -76,3 +59,4 @@ class DefaultRecoverCapability(RecoverCapability):
             strategy=RecoveryStrategy.REPLAN_GRAPH,
             explanation="Initiating task re-plan to circumvent failure point.",
         )
+

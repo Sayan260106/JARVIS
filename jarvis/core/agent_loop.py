@@ -45,6 +45,16 @@ class AgentLoop:
         self.llm_provider = llm_provider
         self.intent_analyzer = intent_analyzer or IntentAnalyzer(llm_provider=self.llm_provider)
         self.ask_user_callback = ask_user_callback
+        self._cancellation_requested = False
+
+    def request_cancellation(self) -> None:
+        """Signals cancellation to the running agent loop."""
+        self._cancellation_requested = True
+
+    def cancel(self) -> None:
+        """Alias for request_cancellation."""
+        self.request_cancellation()
+
 
     def create_task(self, objective: str, initial_plan: Optional[List[LoopAction]] = None) -> AgentLoopTask:
         """Initialize an active task for the agent loop."""
@@ -242,6 +252,11 @@ class AgentLoop:
             print("-" * 30)
 
         while task.active:
+            if self._cancellation_requested:
+                task.status = "CANCELLED"
+                task.active = False
+                break
+
             # 1. understand()
             context = self.understand(task)
 

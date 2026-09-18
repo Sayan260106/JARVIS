@@ -26,6 +26,7 @@ from jarvis.tools.system_tools import (
     LockPCTool,
     ShutdownTool,
     RestartTool,
+    TypeTextTool,
 )
 from jarvis.tools.productivity_tools import (
     CreateFolderTool,
@@ -94,6 +95,7 @@ def get_default_registry() -> ToolRegistry:
     registry.register(LockPCTool())
     registry.register(ShutdownTool())
     registry.register(RestartTool())
+    registry.register(TypeTextTool())
     # Productivity, Telemetry & Task Management
     registry.register(CreateFolderTool())
     registry.register(CheckProcessTool())
@@ -168,6 +170,7 @@ __all__ = [
     "LockPCTool",
     "ShutdownTool",
     "RestartTool",
+    "TypeTextTool",
     "CreateFolderTool",
     "CheckProcessTool",
     "GetHardwareMetricsTool",
