@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>JARVIS — Autonomous Desktop HUD</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div class="hud-container">
+    <!-- Header -->
+    <header class="hud-header">
+      <div class="brand">
+        <span class="brand-title">J A R V I S</span>
+        <span class="brand-subtitle">AUTONOMOUS COGNITIVE SYSTEM</span>
+      </div>
+      <div class="system-status-badge">
+        <span class="pulse-dot"></span>
+        <span id="sys-status-text">SYSTEM STATUS: ONLINE</span>
+      </div>
+    </header>
+
+    <!-- Core Orb / Listening Section -->
+    <section class="orb-section">
+      <div class="arc-reactor" id="arc-reactor">
+        <div class="ring outer-ring"></div>
+        <div class="ring middle-ring"></div>
+        <div class="core-glow">◉</div>
+      </div>
+      <div class="agent-state-label" id="agent-state">LISTENING...</div>
+      <div class="speech-quote" id="speech-quote">"How may I assist you?"</div>
+    </section>
+
+    <!-- Split Panels: Active Task & System Telemetry -->
+    <div class="hud-grid">
+      <!-- Active Task Panel -->
+      <div class="panel task-panel">
+        <div class="panel-header">
+          <span class="panel-title">ACTIVE TASK</span>
+          <span class="step-indicator" id="task-step">Step 9/12</span>
+        </div>
+        <div class="task-name" id="task-name">ORCA-X verification</div>
+        <div class="progress-bar-container">
+          <div class="progress-bar-fill" id="progress-bar" style="width: 82%;"></div>
+        </div>
+        <div class="progress-meta">
+          <span id="progress-pct">82% Completed</span>
+          <span class="task-status-tag" id="task-tag">RUNNING</span>
+        </div>
+      </div>
+
+      <!-- System Telemetry Panel -->
+      <div class="panel system-panel">
+        <div class="panel-header">
+          <span class="panel-title">SYSTEM TELEMETRY</span>
+          <span class="host-tag">HOST: LAPTOP</span>
+        </div>
+        <div class="metrics-grid">
+          <div class="metric-row">
+            <span class="metric-label">CPU USAGE</span>
+            <div class="metric-bar-wrap">
+              <div class="metric-bar" id="cpu-bar" style="width: 24%;"></div>
+            </div>
+            <span class="metric-val" id="cpu-val">24%</span>
+          </div>
+          <div class="metric-row">
+            <span class="metric-label">RAM USAGE</span>
+            <div class="metric-bar-wrap">
+              <div class="metric-bar" id="ram-bar" style="width: 48%;"></div>
+            </div>
+            <span class="metric-val" id="ram-val">48%</span>
+          </div>
+          <div class="status-row">
+            <span>Ollama AI</span>
+            <span class="status-online" id="ollama-status">● ONLINE</span>
+          </div>
+          <div class="status-row">
+            <span>Browser</span>
+            <span class="status-ready" id="browser-status">● READY</span>
+          </div>
+          <div class="status-row">
+            <span>Network</span>
+            <span class="status-online" id="network-status">● ONLINE</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Live Conversation Stream -->
+    <section class="conversation-panel">
+      <div class="conversation-header">COMMUNICATION FEED</div>
+      <div class="messages-stream" id="messages-stream">
+        <div class="msg user-msg">
+          <span class="sender-tag">You:</span>
+          <span class="msg-content">Verify the realtime API</span>
+        </div>
+        <div class="msg jarvis-msg">
+          <span class="sender-tag">JARVIS:</span>
+          <span class="msg-content">Certainly. I'm checking the endpoint now.</span>
+        </div>
+      </div>
+
+      <!-- Input Bar -->
+      <form class="input-bar" id="chat-form">
+        <input type="text" id="user-input" placeholder="Give an instruction or ask a question..." autocomplete="off" required>
+        <button type="submit" id="send-btn">TRANSMIT</button>
+      </form>
+    </section>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
