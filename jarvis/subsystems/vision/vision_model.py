@@ -14,6 +14,7 @@ import urllib.request
 from typing import Any, Dict, List, Optional
 
 from jarvis.subsystems.vision.screen_capture import CapturedScreen
+from jarvis.core.llm_provider import LLMProvider, ModelRole
 
 
 @dataclass
@@ -35,10 +36,12 @@ class VisionModel:
         ollama_base_url: str = "http://127.0.0.1:11434",
         ollama_vision_model: str = "llava",
         gemini_api_key: Optional[str] = None,
+        llm_provider: Optional[LLMProvider] = None,
     ):
         self.ollama_base_url = ollama_base_url.rstrip("/")
         self.ollama_vision_model = ollama_vision_model
         self.gemini_api_key = gemini_api_key or os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")
+        self.llm_provider = llm_provider
 
     def analyze_screen(
         self,
@@ -115,7 +118,21 @@ class VisionModel:
             return None
 
     def _query_ollama_vision(self, screen: CapturedScreen, prompt: str) -> Optional[VisionAnalysis]:
-        """Attempts visual analysis using local Ollama vision model."""
+        """Attempts visual analysis using local Ollama vision model or LLMProvider abstraction."""
+        if self.llm_provider is not None:
+            try:
+                text = self.llm_provider.vision(screen.base64_data, prompt, role=ModelRole.VISION)
+                if text:
+                    has_err = any(w in text.lower() for w in ["error", "exception", "failed", "crash", "traceback"])
+                    return VisionAnalysis(
+                        description=text,
+                        detected_issues=[text] if has_err else [],
+                        has_error=has_err,
+                        confidence=0.88,
+                    )
+            except Exception:
+                pass
+
         try:
             url = f"{self.ollama_base_url}/api/generate"
             payload = {
@@ -124,6 +141,7 @@ class VisionModel:
                 "images": [screen.base64_data],
                 "stream": False,
             }
+
             req = urllib.request.Request(
                 url,
                 data=json.dumps(payload).encode("utf-8"),

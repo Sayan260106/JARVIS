@@ -15,6 +15,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Dict, List, Optional
 from jarvis.tools.base import PermissionLevel
+from jarvis.core.llm_provider import LLMProvider, ModelRole
 
 
 class IntentType(str, Enum):
@@ -42,10 +43,15 @@ class UserIntent:
 
 
 class IntentAnalyzer:
-    """Classifies user queries into discrete intent types and permission categories."""
+    """Classifies user queries into discrete intent types and permission categories using heuristics and fast SLMs."""
 
-    def __init__(self, projects_directory: Optional[str] = None):
+    def __init__(
+        self,
+        projects_directory: Optional[str] = None,
+        llm_provider: Optional[LLMProvider] = None,
+    ):
         self.projects_directory = projects_directory or os.path.join(os.path.expanduser("~"), "Projects")
+        self.llm_provider = llm_provider
 
     def analyze(
         self,
@@ -242,6 +248,12 @@ class IntentAnalyzer:
                 requires_research=True,
             )
 
+        # 7. Fast SLM Classification (ModelRole.FAST) for ambiguous queries
+        if self.llm_provider is not None:
+            fast_intent = self.classify_with_fast_model(q)
+            if fast_intent is not None:
+                return fast_intent
+
         # Default: Pure conversation
         return UserIntent(
             raw_query=q,
@@ -250,6 +262,56 @@ class IntentAnalyzer:
             target_tool=None,
             parameters={},
         )
+
+    def classify_with_fast_model(self, query: str) -> Optional[UserIntent]:
+        """Classifies query using a specialized fast model (ModelRole.FAST)."""
+        if not self.llm_provider:
+            return None
+        schema = {
+            "type": "object",
+            "properties": {
+                "intent_type": {
+                    "type": "string",
+                    "enum": ["CONVERSATION", "READ_QUERY", "WRITE_ACTION", "EXTERNAL_ACTION", "DESTRUCTIVE_ACTION", "COMPLEX_WORKFLOW"],
+                },
+                "target_tool": {"type": "string"},
+                "confidence": {"type": "number"},
+            },
+            "required": ["intent_type"],
+        }
+        prompt = (
+            f"Classify the following user input into an intent type:\n\"{query}\"\n"
+            "Return valid JSON strictly conforming to the requested schema."
+        )
+        try:
+            res = self.llm_provider.structured_output(prompt, schema=schema, role=ModelRole.FAST)
+            itype_str = res.get("intent_type", "CONVERSATION")
+            try:
+                itype = IntentType(itype_str)
+            except ValueError:
+                itype = IntentType.CONVERSATION
+
+            tool = res.get("target_tool") or None
+            # Derive permission level
+            if itype == IntentType.DESTRUCTIVE_ACTION:
+                plevel = PermissionLevel.LEVEL_3_DESTRUCTIVE
+            elif itype == IntentType.EXTERNAL_ACTION:
+                plevel = PermissionLevel.LEVEL_2_EXTERNAL_ACTION
+            elif itype in (IntentType.WRITE_ACTION, IntentType.COMPLEX_WORKFLOW):
+                plevel = PermissionLevel.LEVEL_1_REVERSIBLE_WRITE
+            else:
+                plevel = PermissionLevel.LEVEL_0_READ
+
+            return UserIntent(
+                raw_query=query,
+                intent_type=itype,
+                permission_level=plevel,
+                target_tool=tool,
+                requires_confirmation=plevel in (PermissionLevel.LEVEL_2_EXTERNAL_ACTION, PermissionLevel.LEVEL_3_DESTRUCTIVE),
+            )
+        except Exception:
+            return None
+
 
     def _extract_name(self, text: str, triggers: List[str]) -> Optional[str]:
         for trigger in triggers:

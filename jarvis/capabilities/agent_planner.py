@@ -17,6 +17,7 @@ from jarvis.tools.permissions import PermissionSystem, PermissionDecision
 from jarvis.tools.registry import ToolRegistry
 from jarvis.tools import get_default_registry
 from jarvis.subsystems.local.ollama_client import OllamaClient
+from jarvis.core.llm_provider import LLMProvider, ModelRole
 from jarvis.capabilities.reasoning.intent_analyzer import IntentAnalyzer, IntentType
 from jarvis.capabilities.reasoning.reasoning_pipeline import ReasoningPipeline
 
@@ -41,17 +42,20 @@ class AgentToolExecutor:
         ollama_client: Optional[OllamaClient] = None,
         registry: Optional[ToolRegistry] = None,
         permission_system: Optional[PermissionSystem] = None,
+        llm_provider: Optional[LLMProvider] = None,
     ):
         self.ollama = ollama_client or OllamaClient()
+        self.llm_provider = llm_provider or getattr(self.ollama, "provider", None)
         self.registry = registry or get_default_registry()
         self.permissions = permission_system or PermissionSystem()
-        self.intent_analyzer = IntentAnalyzer()
+        self.intent_analyzer = IntentAnalyzer(llm_provider=self.llm_provider)
         self.reasoning_pipeline = ReasoningPipeline(
             intent_analyzer=self.intent_analyzer,
             permission_system=self.permissions,
             registry=self.registry,
             tool_executor=self,
         )
+
 
     def build_system_prompt(self) -> str:
         """Construct the tool-augmented system prompt for Ollama."""

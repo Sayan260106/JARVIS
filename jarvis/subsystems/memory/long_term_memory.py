@@ -13,6 +13,8 @@ import time
 from typing import Any, Dict, List, Optional
 
 from jarvis.subsystems.memory.schemas import Episode, KnowledgeItem, MemorySearchResult, MemoryTier
+from jarvis.core.llm_provider import LLMProvider, ModelRole
+from jarvis.subsystems.memory.vector_store import SQLiteVectorStore
 
 
 class EpisodicMemory:
@@ -160,11 +162,18 @@ class EpisodicMemory:
 
 
 class KnowledgeMemory:
-    """Manages knowledge items, documents, and reference facts using SQLite FTS5."""
+    """Manages knowledge items, documents, and reference facts using SQLite FTS5 and semantic vector embeddings."""
 
-    def __init__(self, db_path: str = "data/jarvis_memory.db"):
+    def __init__(
+        self,
+        db_path: str = "data/jarvis_memory.db",
+        llm_provider: Optional[LLMProvider] = None,
+        vector_store: Optional[SQLiteVectorStore] = None,
+    ):
         self.db_path = db_path
         os.makedirs(os.path.dirname(os.path.abspath(db_path)), exist_ok=True)
+        self.vector_store = vector_store or SQLiteVectorStore(db_path=db_path)
+        self.llm_provider = llm_provider
         self._init_db()
 
     def _get_connection(self) -> sqlite3.Connection:
@@ -199,7 +208,7 @@ class KnowledgeMemory:
             conn.commit()
 
     def add_item(self, item: KnowledgeItem) -> str:
-        """Stores and indexes a knowledge item into SQLite FTS5."""
+        """Stores and indexes a knowledge item into SQLite FTS5 and vector store."""
         tags_str = " ".join(item.tags)
         with self._get_connection() as conn:
             conn.execute("""
@@ -225,7 +234,55 @@ class KnowledgeMemory:
                 item.source,
             ))
             conn.commit()
+
+        # Generate embedding via LLMProvider with EMBEDDING role if configured
+        if self.llm_provider and self.vector_store:
+            try:
+                corpus = f"{item.title} {item.content} {tags_str}"
+                vec = self.llm_provider.embed(corpus, role=ModelRole.EMBEDDING)
+                self.vector_store.store_vector(item.id, vec, metadata={"title": item.title, "tags": item.tags})
+            except Exception:
+                pass
+
         return item.id
+
+    def semantic_search(self, query: str, limit: int = 5) -> List[KnowledgeItem]:
+        """Performs dense vector retrieval via ModelRole.EMBEDDING and cosine similarity."""
+        if not self.llm_provider or not self.vector_store:
+            return self.search(query, limit=limit)
+
+        try:
+            q_vec = self.llm_provider.embed(query, role=ModelRole.EMBEDDING)
+            top_matches = self.vector_store.similarity_search(q_vec, top_k=limit)
+            results = []
+            for item_id, score, _ in top_matches:
+                item = self.get_item(item_id)
+                if item:
+                    results.append(item)
+            return results
+        except Exception:
+            return self.search(query, limit=limit)
+
+    def hybrid_search(self, query: str, limit: int = 5) -> List[KnowledgeItem]:
+        """Combines FTS5 lexical matching and dense vector semantic search."""
+        lexical = self.search(query, limit=limit)
+        semantic = self.semantic_search(query, limit=limit)
+
+        combined: List[KnowledgeItem] = []
+        seen_ids = set()
+
+        for item in lexical:
+            if item.id not in seen_ids:
+                seen_ids.add(item.id)
+                combined.append(item)
+
+        for item in semantic:
+            if item.id not in seen_ids:
+                seen_ids.add(item.id)
+                combined.append(item)
+
+        return combined[:limit]
+
 
     def get_item(self, item_id: str) -> Optional[KnowledgeItem]:
         """Retrieves a knowledge item by ID."""

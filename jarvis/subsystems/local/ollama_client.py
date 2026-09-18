@@ -10,6 +10,11 @@ import urllib.error
 from typing import Any, Dict, List, Optional
 
 
+from jarvis.core.llm_provider import ModelRole, LLMProvider
+from jarvis.core.model_manager import ModelManager, default_model_manager
+from jarvis.subsystems.local.ollama_provider import OllamaProvider
+
+
 DEFAULT_JARVIS_SYSTEM_PROMPT = """You are JARVIS, an advanced, highly intelligent local AI assistant.
 Your responses are direct, articulate, insightful, and technically precise.
 You excel at computer science, engineering, and analytical problem-solving.
@@ -17,7 +22,7 @@ Always tailor explanations accurately to the user's requested level of depth."""
 
 
 class OllamaClient:
-    """Client for local Ollama server."""
+    """Client for local Ollama server, backed by the OllamaProvider abstraction."""
 
     def __init__(
         self,
@@ -25,11 +30,21 @@ class OllamaClient:
         model: str = "qwen2.5:3b",
         system_prompt: str = DEFAULT_JARVIS_SYSTEM_PROMPT,
         timeout: float = 60.0,
+        model_manager: Optional[ModelManager] = None,
+        provider: Optional[OllamaProvider] = None,
     ):
         self.base_url = base_url.rstrip("/")
         self.model = model
         self.system_prompt = system_prompt
         self.timeout = timeout
+        self.model_manager = model_manager or default_model_manager
+        # Ensure default model is reflected in model_manager for REASONING
+        self.model_manager.set_model(ModelRole.REASONING, model)
+        self.provider: OllamaProvider = provider or OllamaProvider(
+            base_url=self.base_url,
+            model_manager=self.model_manager,
+            timeout=self.timeout,
+        )
 
     def is_available(self) -> bool:
         """Check if the local Ollama server is running and reachable."""
@@ -102,3 +117,20 @@ class OllamaClient:
             raise ConnectionError(
                 f"Failed to connect to Ollama at {self.base_url}. Is 'ollama serve' running? Error: {e}"
             )
+
+    def generate(self, prompt: str, system_prompt: Optional[str] = None, model: Optional[str] = None, role: Optional[ModelRole] = None, **kwargs) -> str:
+        """Delegate to underlying provider generate."""
+        return self.provider.generate(prompt, system_prompt=system_prompt, model=model or self.model, role=role, **kwargs)
+
+    def structured_output(self, prompt: str, schema: Dict[str, Any], system_prompt: Optional[str] = None, model: Optional[str] = None, role: Optional[ModelRole] = None, **kwargs) -> Dict[str, Any]:
+        """Delegate to underlying provider structured_output."""
+        return self.provider.structured_output(prompt, schema=schema, system_prompt=system_prompt, model=model, role=role, **kwargs)
+
+    def embed(self, text: str, model: Optional[str] = None, role: Optional[ModelRole] = None, **kwargs) -> List[float]:
+        """Delegate to underlying provider embed."""
+        return self.provider.embed(text, model=model, role=role, **kwargs)
+
+    def vision(self, image_data: str, prompt: str, model: Optional[str] = None, role: Optional[ModelRole] = None, **kwargs) -> str:
+        """Delegate to underlying provider vision."""
+        return self.provider.vision(image_data, prompt=prompt, model=model, role=role, **kwargs)
+
