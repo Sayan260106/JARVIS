@@ -103,6 +103,9 @@ from jarvis.tools.memory_tools import (
     StoreKnowledgeTool,
     SearchKnowledgeTool,
     ManageWorkingMemoryTool,
+    SessionRecallTool,
+    ManagePreferenceTool,
+    WorkflowMemoryTool,
 )
 from jarvis.tools.orchestration_tools import RunComplexTaskTool
 from jarvis.tools.document_tools import (
@@ -225,10 +228,17 @@ def get_default_registry() -> ToolRegistry:
     registry.register(DocumentExamPrepTool())
     # Model Routing Inspection
     registry.register(ModelRouteInspectTool())
+    # Memory 2.0 Tools
+    registry.register(SessionRecallTool())
+    registry.register(ManagePreferenceTool())
+    registry.register(WorkflowMemoryTool())
     return registry
 
 
 __all__ = [
+    "SessionRecallTool",
+    "ManagePreferenceTool",
+    "WorkflowMemoryTool",
     "ModelRouteInspectTool",
     "DocumentReadTool",
     "DocumentChunkTool",

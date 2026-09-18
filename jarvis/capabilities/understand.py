@@ -51,6 +51,19 @@ class DefaultUnderstandCapability(UnderstandCapability):
                 is_ambiguous=False,
             )
 
+        # 1.3 Session Recall: "What were we doing?"
+        if re.search(r"\b(?:what\s+(?:were|are)\s+we\s+doing|what\s+was\s+(?:the\s+)?last\s+task|where\s+did\s+we\s+leave\s+off)\b", cleaned, re.I):
+            return TaskObjective(
+                raw_input=cleaned,
+                intent=IntentCategory.QUERY,
+                description="Recall current session activity and summarize in-flight task progress.",
+                target_criteria="Active session history inspected and answer provided to user.",
+                context=context,
+                sub_goals=["Inspect active session activity history", "Synthesize summary of recent actions"],
+                extracted_entities={"action": "session_recall", "query": cleaned},
+                is_ambiguous=False,
+            )
+
         # 1.4 Academic Lecture Search & Exam Study workflow
         study_match = self._parse_document_study_workflow(cleaned)
         if study_match:

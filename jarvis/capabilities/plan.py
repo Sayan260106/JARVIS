@@ -56,6 +56,19 @@ class DefaultPlanCapability(PlanCapability):
             steps.extend([step_open, step_type, step_save])
             return ExecutionPlan.create(objective=objective, steps=steps)
 
+        # 1.3 Session Recall: "What were we doing?"
+        if entities.get("action") == "session_recall":
+            steps.append(
+                PlanStep.create(
+                    description="Recall active session state and recent actions",
+                    subsystem=SubsystemType.LOCAL,
+                    tool_name="session_recall",
+                    arguments={"query": entities.get("query", objective.raw_input)},
+                    expected_outcome="Session progress and recent actions summarized.",
+                )
+            )
+            return ExecutionPlan.create(objective=objective, steps=steps)
+
         # 1.4 Academic Lecture Search & Exam Study workflow
         if entities.get("action") == "lecture_study_and_summarize":
             browser = entities.get("browser", "chrome")
@@ -451,6 +464,31 @@ class DefaultPlanCapability(PlanCapability):
             )
 
         else:
+            # Check WorkflowMemory for matching reusable workflows
+            try:
+                from jarvis.tools.memory_tools import get_memory_manager
+                mem = get_memory_manager()
+                matched_wf = mem.workflow.find_matching_workflow(objective.raw_input)
+                if matched_wf and matched_wf.steps:
+                    prev_dep = None
+                    for s_data in matched_wf.steps:
+                        tool = s_data.get("tool", "")
+                        args = s_data.get("arguments", {})
+                        subsystem = SubsystemType.WEB if "browser" in tool else SubsystemType.SYSTEM
+                        step_obj = PlanStep.create(
+                            description=f"Execute '{tool}' as part of '{matched_wf.name}'",
+                            subsystem=subsystem,
+                            tool_name=tool,
+                            arguments=args,
+                            expected_outcome=f"Completed {tool} from reusable workflow '{matched_wf.name}'.",
+                            depends_on=[prev_dep] if prev_dep else [],
+                        )
+                        steps.append(step_obj)
+                        prev_dep = step_obj.step_id
+                    return ExecutionPlan.create(objective=objective, steps=steps)
+            except Exception:
+                pass
+
             # General fallback decomposition
             steps.append(
                 PlanStep.create(

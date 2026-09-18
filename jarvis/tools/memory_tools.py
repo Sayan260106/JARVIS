@@ -288,3 +288,207 @@ class ManageWorkingMemoryTool(BaseTool):
             verified=verified,
             details="Working memory operation verified." if verified else "Working memory action failed.",
         )
+
+
+class SessionRecallTool(BaseTool):
+    """Answers 'What were we doing?' and inspects the active task and step history."""
+    name = "session_recall"
+    description = "Recall active session progress and recent actions to answer 'What were we doing?'"
+    risk_level = RiskLevel.LOW
+
+    parameters = {
+        "query": ToolParameter("query", "string", "Optional natural language question or clarification", required=False),
+    }
+
+    def __init__(self, memory_manager: Optional[UnifiedMemoryManager] = None):
+        self.memory = memory_manager or get_memory_manager()
+
+    def execute(self, query: Optional[str | Dict[str, Any]] = None, **kwargs) -> ToolResult:
+        start_t = time.perf_counter()
+        if isinstance(query, dict):
+            query = query.get("query")
+        try:
+            summary = self.memory.what_were_we_doing()
+            recent_activities = [a.to_dict() for a in self.memory.session.get_recent_activities(limit=5)]
+            return ToolResult(
+                success=True,
+                output={"answer": summary, "recent_activities": recent_activities},
+                duration_ms=(time.perf_counter() - start_t) * 1000,
+            )
+        except Exception as e:
+            return ToolResult(
+                success=False,
+                output=None,
+                error=str(e),
+                duration_ms=(time.perf_counter() - start_t) * 1000,
+            )
+
+    def verify(self, arguments: Dict[str, Any], result: ToolResult) -> ToolVerification:
+        verified = result.success and bool(result.output and result.output.get("answer"))
+        return ToolVerification(
+            verified=verified,
+            details="Session history recalled successfully." if verified else "Failed to recall session state.",
+        )
+
+
+class ManagePreferenceTool(BaseTool):
+    """Manages explicit long-term user preferences (browser, editor, directories)."""
+    name = "manage_preference"
+    description = "Get, set, list, or delete explicit user preferences that JARVIS is permitted to remember."
+    risk_level = RiskLevel.LOW
+
+    parameters = {
+        "action": ToolParameter("action", "string", "Action to perform: 'get', 'set', 'list', 'delete'", required=True),
+        "key": ToolParameter("key", "string", "Preference key (e.g. 'preferred_browser', 'preferred_editor')", required=False),
+        "value": ToolParameter("value", "string", "Preference value to set", required=False),
+        "category": ToolParameter("category", "string", "Optional category (browser, editor, filesystem, general)", required=False),
+    }
+
+    def __init__(self, memory_manager: Optional[UnifiedMemoryManager] = None):
+        self.memory = memory_manager or get_memory_manager()
+
+    def execute(
+        self,
+        action: str | Dict[str, Any] = "",
+        key: Optional[str] = None,
+        value: Optional[str] = None,
+        category: Optional[str] = None,
+        **kwargs,
+    ) -> ToolResult:
+        start_t = time.perf_counter()
+        if isinstance(action, dict):
+            args = action
+            action = args.get("action", "")
+            key = args.get("key", key)
+            value = args.get("value", value)
+            category = args.get("category", category)
+
+        act = str(action).lower().strip()
+        try:
+            if act == "get":
+                if not key:
+                    return ToolResult(success=False, output=None, error="Key required for 'get'", duration_ms=0)
+                val = self.memory.get_preference(key)
+                out = {"key": key, "value": val, "found": val is not None}
+            elif act == "set":
+                if not key or value is None:
+                    return ToolResult(success=False, output=None, error="Key and value required for 'set'", duration_ms=0)
+                pref = self.memory.set_preference(key, value, category=category or "general")
+                out = {"key": key, "value": value, "category": pref.category, "updated": True}
+            elif act == "list":
+                prefs = self.memory.list_preferences(category=category)
+                out = {"preferences": prefs, "count": len(prefs)}
+            elif act == "delete":
+                if not key:
+                    return ToolResult(success=False, output=None, error="Key required for 'delete'", duration_ms=0)
+                deleted = self.memory.semantic.forget_preference(key)
+                out = {"key": key, "deleted": deleted}
+            else:
+                return ToolResult(success=False, output=None, error=f"Unknown action '{action}'", duration_ms=0)
+
+            return ToolResult(
+                success=True,
+                output=out,
+                duration_ms=(time.perf_counter() - start_t) * 1000,
+            )
+        except Exception as e:
+            return ToolResult(
+                success=False,
+                output=None,
+                error=str(e),
+                duration_ms=(time.perf_counter() - start_t) * 1000,
+            )
+
+    def verify(self, arguments: Dict[str, Any], result: ToolResult) -> ToolVerification:
+        verified = result.success and result.output is not None
+        return ToolVerification(
+            verified=verified,
+            details="Preference operation verified." if verified else "Preference action failed.",
+        )
+
+
+class WorkflowMemoryTool(BaseTool):
+    """Manages reusable task workflows (e.g. 'Open ECE Classroom')."""
+    name = "manage_workflow"
+    description = "Find, save, or list reusable workflows from previous executions."
+    risk_level = RiskLevel.LOW
+
+    parameters = {
+        "action": ToolParameter("action", "string", "Action: 'find', 'save', 'list', 'get'", required=True),
+        "prompt": ToolParameter("prompt", "string", "User prompt or trigger to find a matching workflow for", required=False),
+        "name": ToolParameter("name", "string", "Workflow name for get or save", required=False),
+        "trigger_patterns": ToolParameter("trigger_patterns", "array", "Regex trigger patterns for saving workflow", required=False),
+        "steps": ToolParameter("steps", "array", "List of steps for saving workflow", required=False),
+        "description": ToolParameter("description", "string", "Workflow description", required=False),
+    }
+
+    def __init__(self, memory_manager: Optional[UnifiedMemoryManager] = None):
+        self.memory = memory_manager or get_memory_manager()
+
+    def execute(
+        self,
+        action: str | Dict[str, Any] = "",
+        prompt: Optional[str] = None,
+        name: Optional[str] = None,
+        trigger_patterns: Optional[List[str]] = None,
+        steps: Optional[List[Dict[str, Any]]] = None,
+        description: Optional[str] = None,
+        **kwargs,
+    ) -> ToolResult:
+        start_t = time.perf_counter()
+        if isinstance(action, dict):
+            args = action
+            action = args.get("action", "")
+            prompt = args.get("prompt", prompt)
+            name = args.get("name", name)
+            trigger_patterns = args.get("trigger_patterns", trigger_patterns)
+            steps = args.get("steps", steps)
+            description = args.get("description", description)
+
+        act = str(action).lower().strip()
+        try:
+            if act == "find":
+                if not prompt:
+                    return ToolResult(success=False, output=None, error="Prompt required for 'find'", duration_ms=0)
+                wf = self.memory.find_workflow(prompt)
+                out = {"found": wf is not None, "workflow": wf.to_dict() if wf else None}
+            elif act == "get":
+                if not name:
+                    return ToolResult(success=False, output=None, error="Name required for 'get'", duration_ms=0)
+                wf = self.memory.workflow.get_workflow(name)
+                out = {"found": wf is not None, "workflow": wf.to_dict() if wf else None}
+            elif act == "list":
+                workflows = self.memory.list_workflows()
+                out = {"workflows": [w.to_dict() for w in workflows], "count": len(workflows)}
+            elif act == "save":
+                if not name or not steps:
+                    return ToolResult(success=False, output=None, error="Name and steps required for 'save'", duration_ms=0)
+                wf = self.memory.save_workflow(
+                    name=name,
+                    trigger_patterns=trigger_patterns or [name.lower()],
+                    steps=steps,
+                    description=description or "",
+                )
+                out = {"saved": True, "workflow": wf.to_dict()}
+            else:
+                return ToolResult(success=False, output=None, error=f"Unknown action '{action}'", duration_ms=0)
+
+            return ToolResult(
+                success=True,
+                output=out,
+                duration_ms=(time.perf_counter() - start_t) * 1000,
+            )
+        except Exception as e:
+            return ToolResult(
+                success=False,
+                output=None,
+                error=str(e),
+                duration_ms=(time.perf_counter() - start_t) * 1000,
+            )
+
+    def verify(self, arguments: Dict[str, Any], result: ToolResult) -> ToolVerification:
+        verified = result.success and result.output is not None
+        return ToolVerification(
+            verified=verified,
+            details="Workflow memory operation verified." if verified else "Workflow action failed.",
+        )
