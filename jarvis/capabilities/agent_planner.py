@@ -16,7 +16,7 @@ from jarvis.tools.validator import ToolValidator
 from jarvis.tools.permissions import PermissionSystem, PermissionDecision
 from jarvis.tools.registry import ToolRegistry
 from jarvis.tools import get_default_registry
-from jarvis.subsystems.local.ollama_client import OllamaClient
+from jarvis.subsystems.local.ollama_client import OllamaClient, DEFAULT_JARVIS_SYSTEM_PROMPT
 from jarvis.core.llm_provider import LLMProvider, ModelRole
 from jarvis.core.agent_loop import AgentLoop
 from jarvis.capabilities.reasoning.intent_analyzer import IntentAnalyzer, IntentType
@@ -237,11 +237,31 @@ class AgentToolExecutor:
 
 
         history = list(conversation_history or [])
-
         history.append({"role": "user", "content": user_prompt})
 
+        # For pure conversation, bypass heavy 13KB tool prompt to respond in seconds without timeout
+        if intent.intent_type == IntentType.CONVERSATION:
+            try:
+                system_prompt = getattr(self.ollama, "system_prompt", None) or DEFAULT_JARVIS_SYSTEM_PROMPT
+                ollama_response = self.ollama.chat(history, system_prompt=system_prompt)
+                return AgentTurnResult(
+                    tool_called=False,
+                    final_response=ollama_response,
+                )
+            except Exception as e:
+                return AgentTurnResult(
+                    tool_called=False,
+                    final_response=f"I encountered a temporary communication issue with the local model: {e}",
+                )
+
         system_prompt = self.build_system_prompt()
-        ollama_response = self.ollama.chat(history, system_prompt=system_prompt)
+        try:
+            ollama_response = self.ollama.chat(history, system_prompt=system_prompt)
+        except Exception as e:
+            return AgentTurnResult(
+                tool_called=False,
+                final_response=f"I encountered a temporary communication issue with the local model: {e}",
+            )
 
         # Check if Ollama requested a valid registered tool
         tool_call = self.extract_tool_call(ollama_response)

@@ -103,14 +103,19 @@ class VerifyEndpointTool(BaseTool):
                 duration_ms=(time.perf_counter() - start_t) * 1000,
             )
         except urllib.error.HTTPError as he:
+            code = he.code
+            try:
+                he.close()
+            except Exception:
+                pass
             # 404 or 401 still means server is up and listening
             return ToolResult(
                 success=True,
                 output={
                     "url": target_url,
-                    "status_code": he.code,
+                    "status_code": code,
                     "healthy": True,
-                    "note": f"Server responded with HTTP {he.code}",
+                    "note": f"Server responded with HTTP {code}",
                 },
                 duration_ms=(time.perf_counter() - start_t) * 1000,
             )

@@ -5,6 +5,7 @@ to power the "Embedding model -> Memory retrieval" architecture.
 """
 
 from __future__ import annotations
+from contextlib import contextmanager
 import json
 import math
 import os
@@ -21,10 +22,15 @@ class SQLiteVectorStore:
         os.makedirs(os.path.dirname(os.path.abspath(db_path)), exist_ok=True)
         self._init_db()
 
-    def _get_connection(self) -> sqlite3.Connection:
+    @contextmanager
+    def _get_connection(self):
         conn = sqlite3.connect(self.db_path)
         conn.row_factory = sqlite3.Row
-        return conn
+        try:
+            with conn:
+                yield conn
+        finally:
+            conn.close()
 
     def _init_db(self):
         with self._get_connection() as conn:

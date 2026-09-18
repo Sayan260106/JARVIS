@@ -29,7 +29,7 @@ class OllamaClient:
         base_url: str = "http://127.0.0.1:11434",
         model: str = "qwen2.5:3b",
         system_prompt: str = DEFAULT_JARVIS_SYSTEM_PROMPT,
-        timeout: float = 60.0,
+        timeout: float = 120.0,
         model_manager: Optional[ModelManager] = None,
         provider: Optional[OllamaProvider] = None,
     ):

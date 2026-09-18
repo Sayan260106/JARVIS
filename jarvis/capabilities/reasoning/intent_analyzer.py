@@ -218,13 +218,15 @@ class IntentAnalyzer:
                 parameters={},
             )
 
-        if "is ollama running" in lower_q or "check process" in lower_q:
+        proc_match = re.search(r"(?:is|check\s+(?:if)?)\s+([a-zA-Z0-9_\-\.]+)\s+(?:is\s+)?running", lower_q)
+        if proc_match or "check process" in lower_q or "is ollama running" in lower_q:
+            proc_name = proc_match.group(1).strip() if proc_match else "ollama"
             return UserIntent(
                 raw_query=q,
                 intent_type=IntentType.READ_QUERY,
                 permission_level=PermissionLevel.LEVEL_0_READ,
                 target_tool="check_process",
-                parameters={"process_name": "ollama"},
+                parameters={"process_name": proc_name},
             )
 
         if "take a screenshot" in lower_q or "capture screen" in lower_q:

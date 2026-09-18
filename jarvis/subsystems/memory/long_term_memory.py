@@ -5,6 +5,7 @@ and Knowledge Memory (documents, notes, and facts indexed via SQLite FTS5).
 """
 
 from __future__ import annotations
+from contextlib import contextmanager
 import json
 import os
 import re
@@ -25,10 +26,15 @@ class EpisodicMemory:
         os.makedirs(os.path.dirname(os.path.abspath(db_path)), exist_ok=True)
         self._init_db()
 
-    def _get_connection(self) -> sqlite3.Connection:
+    @contextmanager
+    def _get_connection(self):
         conn = sqlite3.connect(self.db_path)
         conn.row_factory = sqlite3.Row
-        return conn
+        try:
+            with conn:
+                yield conn
+        finally:
+            conn.close()
 
     def _init_db(self):
         with self._get_connection() as conn:
@@ -176,10 +182,15 @@ class KnowledgeMemory:
         self.llm_provider = llm_provider
         self._init_db()
 
-    def _get_connection(self) -> sqlite3.Connection:
+    @contextmanager
+    def _get_connection(self):
         conn = sqlite3.connect(self.db_path)
         conn.row_factory = sqlite3.Row
-        return conn
+        try:
+            with conn:
+                yield conn
+        finally:
+            conn.close()
 
     def _init_db(self):
         with self._get_connection() as conn:
@@ -310,6 +321,7 @@ class KnowledgeMemory:
 
         fts_query = " OR ".join(clean_tokens)
         results: List[KnowledgeItem] = []
+        item_ids: List[str] = []
 
         with self._get_connection() as conn:
             try:
@@ -319,10 +331,7 @@ class KnowledgeMemory:
                     ORDER BY rank
                     LIMIT ?
                 """, (fts_query, limit)).fetchall()
-                for r in rows:
-                    item = self.get_item(r["id"])
-                    if item:
-                        results.append(item)
+                item_ids = [r["id"] for r in rows]
             except Exception:
                 # Fallback to standard LIKE if query syntax fails
                 like_pat = f"%{clean_tokens[0]}%"
@@ -331,10 +340,12 @@ class KnowledgeMemory:
                     WHERE title LIKE ? OR content LIKE ?
                     LIMIT ?
                 """, (like_pat, like_pat, limit)).fetchall()
-                for r in rows:
-                    item = self.get_item(r["id"])
-                    if item:
-                        results.append(item)
+                item_ids = [r["id"] for r in rows]
+
+        for item_id in item_ids:
+            item = self.get_item(item_id)
+            if item:
+                results.append(item)
 
         return results
 

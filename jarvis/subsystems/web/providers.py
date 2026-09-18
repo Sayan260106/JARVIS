@@ -56,6 +56,11 @@ class ChatGPTProvider(ResearchProvider):
                 data = json.loads(resp.read().decode("utf-8"))
                 return data["choices"][0]["message"]["content"].strip()
         except Exception as e:
+            if hasattr(e, "close"):
+                try:
+                    e.close()
+                except Exception:
+                    pass
             return f"[ChatGPT Error]: {str(e)}"
 
 
@@ -94,6 +99,11 @@ class GeminiProvider(ResearchProvider):
                         return parts[0].get("text", "").strip()
             return "[Gemini]: No response content returned."
         except Exception as e:
+            if hasattr(e, "close"):
+                try:
+                    e.close()
+                except Exception:
+                    pass
             return f"[Gemini Error]: {str(e)}"
 
 
@@ -122,7 +132,12 @@ class WebSearchHarvester:
                 clean_url = re.sub(r"<[^>]+>", "", titles[i]).strip() if i < len(titles) else "web"
                 if clean_snippet:
                     results.append({"title": f"Source {i+1}", "snippet": clean_snippet, "url": clean_url})
-        except Exception:
+        except Exception as e:
+            if hasattr(e, "close"):
+                try:
+                    e.close()
+                except Exception:
+                    pass
             # Fallback mock/offline result for test environments or offline state
             results.append({
                 "title": "Primary Web Source",

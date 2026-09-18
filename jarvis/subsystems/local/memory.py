@@ -4,6 +4,7 @@ Provides local persistent storage for multi-turn conversational history.
 """
 
 from __future__ import annotations
+from contextlib import contextmanager
 import os
 import sqlite3
 import time
@@ -19,10 +20,15 @@ class ConversationMemory:
         os.makedirs(os.path.dirname(os.path.abspath(db_path)), exist_ok=True)
         self._init_db()
 
-    def _get_connection(self) -> sqlite3.Connection:
+    @contextmanager
+    def _get_connection(self):
         conn = sqlite3.connect(self.db_path)
         conn.row_factory = sqlite3.Row
-        return conn
+        try:
+            with conn:
+                yield conn
+        finally:
+            conn.close()
 
     def _init_db(self):
         """Create sessions and messages tables if they do not exist."""
