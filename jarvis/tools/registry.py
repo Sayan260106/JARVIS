@@ -24,6 +24,10 @@ class ToolRegistry:
         """Retrieve tool by name."""
         return self._tools.get(name)
 
+    def get_tool(self, name: str) -> Optional[BaseTool]:
+        """Retrieve tool by name (alias for get)."""
+        return self.get(name)
+
     def list_tools(self) -> List[BaseTool]:
         """Return all registered tools."""
         return list(self._tools.values())

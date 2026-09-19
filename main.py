@@ -39,7 +39,7 @@ def run_diagnostics():
     print("=" * 68)
 
     # 1. Ollama SLM
-    print("\n[1/6] Inspecting Local LLM (Ollama)...")
+    print("\n[1/7] Inspecting Local LLM (Ollama)...")
     ollama_ok, models = check_ollama_status()
     if ollama_ok:
         print(f"  [OK] Ollama is ONLINE at http://127.0.0.1:11434")
@@ -49,7 +49,7 @@ def run_diagnostics():
         print("         Start Ollama with 'ollama serve' to enable local neural intelligence.")
 
     # 2. Local TTS (SAPI5)
-    print("\n[2/6] Inspecting Audio Output (TTS)...")
+    print("\n[2/7] Inspecting Audio Output (TTS)...")
     try:
         from jarvis.subsystems.local.tts import LocalTTS
         tts = LocalTTS(enabled=False)
@@ -58,7 +58,7 @@ def run_diagnostics():
         print(f"  [WARN] TTS driver unavailable: {e}")
 
     # 3. Local STT & Microphones
-    print("\n[3/6] Inspecting Audio Input (Microphone & STT)...")
+    print("\n[3/7] Inspecting Audio Input (Microphone & STT)...")
     try:
         import sounddevice as sd
         devices = sd.query_devices()
@@ -68,7 +68,7 @@ def run_diagnostics():
         print(f"  [WARN] Microphone check encountered an issue: {e}")
 
     # 4. Hardware Telemetry
-    print("\n[4/6] Inspecting Hardware Telemetry (psutil)...")
+    print("\n[4/7] Inspecting Hardware Telemetry (psutil)...")
     try:
         import psutil
         cpu = psutil.cpu_percent(interval=0.1)
@@ -78,7 +78,7 @@ def run_diagnostics():
         print(f"  [WARN] Hardware telemetry check failed: {e}")
 
     # 5. Database Durability (SQLite)
-    print("\n[5/6] Inspecting Memory & Task Database Storage...")
+    print("\n[5/7] Inspecting Memory & Task Database Storage...")
     try:
         from jarvis.subsystems.local.memory import ConversationMemory
         from jarvis.core.task_manager import TaskStore
@@ -89,14 +89,25 @@ def run_diagnostics():
         print(f"  [FAIL] Database verification failed: {e}")
 
     # 6. Tool Registry
-    print("\n[6/6] Inspecting Tool System...")
+    print("\n[6/7] Inspecting Tool System...")
     try:
         from jarvis.tools import get_default_registry
         reg = get_default_registry()
         tools = reg.list_tools()
-        print(f"  [OK] Tool registry verified: {len(tools)} tools ready across System, Web, Vision, and Memory.")
+        print(f"  [OK] Tool registry verified: {len(tools)} tools ready across System, Web, Vision, Proactive, and Memory.")
     except Exception as e:
         print(f"  [FAIL] Tool registry initialization failed: {e}")
+
+    # 7. Proactive Subsystem (Phase 17)
+    print("\n[7/7] Inspecting Proactive Subsystem (Schedules, Watchers, Notifications)...")
+    try:
+        from jarvis.subsystems.proactive import ProactiveEngine
+        engine = ProactiveEngine.get_instance()
+        triggers = engine.list_triggers()
+        schedules = engine.scheduler.list_schedules()
+        print(f"  [OK] Proactive Engine verified: {len(triggers)} trigger(s), {len(schedules)} schedule(s) ready.")
+    except Exception as e:
+        print(f"  [FAIL] Proactive subsystem initialization failed: {e}")
 
     print("\n" + "=" * 68)
     print(" Diagnostics complete. JARVIS is ready to operate.")

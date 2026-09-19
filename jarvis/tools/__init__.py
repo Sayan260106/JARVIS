@@ -144,6 +144,15 @@ from jarvis.tools.coding_tools import (
     GitCommitPrepTool,
     GitPushTool,
 )
+from jarvis.tools.proactive_tools import (
+    ScheduleTaskTool,
+    WatchFolderTool,
+    WatchProcessTool,
+    SendNotificationTool,
+    ListProactiveRulesTool,
+    CancelProactiveRuleTool,
+    TriggerWorkflowTool,
+)
 
 
 
@@ -276,6 +285,14 @@ def get_default_registry() -> ToolRegistry:
     registry.register(GitInspectTool())
     registry.register(GitCommitPrepTool())
     registry.register(GitPushTool())
+    # Phase 17 Proactive JARVIS Tools
+    registry.register(ScheduleTaskTool())
+    registry.register(WatchFolderTool())
+    registry.register(WatchProcessTool())
+    registry.register(SendNotificationTool())
+    registry.register(ListProactiveRulesTool())
+    registry.register(CancelProactiveRuleTool())
+    registry.register(TriggerWorkflowTool())
     return registry
 
 
@@ -398,6 +415,13 @@ __all__ = [
     "GitInspectTool",
     "GitCommitPrepTool",
     "GitPushTool",
+    "ScheduleTaskTool",
+    "WatchFolderTool",
+    "WatchProcessTool",
+    "SendNotificationTool",
+    "ListProactiveRulesTool",
+    "CancelProactiveRuleTool",
+    "TriggerWorkflowTool",
     "get_default_registry",
 ]
 

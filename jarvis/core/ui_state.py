@@ -102,6 +102,10 @@ class UIStateManager:
             ChatMessage(sender="You", text="Verify the realtime API"),
             ChatMessage(sender="JARVIS", text="Certainly. I'm checking the endpoint now."),
         ]
+        # Phase 17 Proactive State
+        self.active_monitors: List[str] = ["Downloads (*.pdf)"]
+        self.scheduled_tasks: List[str] = ["Every Monday: Classroom scan"]
+        self.recent_notifications: List[Dict[str, Any]] = []
 
     def set_agent_state(self, state: str, quote: Optional[str] = None):
         """Update listening/thinking status and displayed speech quote."""
@@ -162,6 +166,18 @@ class UIStateManager:
         if len(self.messages) > 30:
             self.messages = self.messages[-30:]
 
+    def add_notification(self, title: str, message: str, severity: str = "INFO"):
+        """Append a proactive notification to the HUD state."""
+        notif = {
+            "title": title,
+            "message": message,
+            "severity": severity,
+            "time": time.time(),
+        }
+        self.recent_notifications.append(notif)
+        if len(self.recent_notifications) > 20:
+            self.recent_notifications = self.recent_notifications[-20:]
+
     def get_hardware_telemetry(self) -> Dict[str, Any]:
         """Fetch current hardware percentages and service statuses."""
         try:
@@ -196,6 +212,9 @@ class UIStateManager:
                 "details": self.active_task.details,
             },
             "task_steps": [s.to_dict() for s in self.task_steps],
+            "active_monitors": self.active_monitors,
+            "scheduled_tasks": self.scheduled_tasks,
+            "recent_notifications": self.recent_notifications,
             "system_metrics": metrics,
             "messages": [
                 {"sender": m.sender, "text": m.text, "time": m.timestamp}

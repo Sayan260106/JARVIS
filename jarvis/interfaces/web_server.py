@@ -40,6 +40,31 @@ class JarvisHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
             self.close_connection = True
             return
 
+        if self.path == "/api/proactive":
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.send_header("Connection", "close")
+            self.end_headers()
+            try:
+                from jarvis.subsystems.proactive.engine import ProactiveEngine
+                engine = ProactiveEngine.get_instance()
+                triggers = [t.to_dict() for t in engine.list_triggers()]
+                schedules = [s.to_dict() for s in engine.scheduler.list_schedules()]
+            except Exception:
+                triggers = []
+                schedules = []
+
+            payload = {
+                "active_monitors": self.state_manager.active_monitors,
+                "scheduled_tasks": schedules,
+                "triggers": triggers,
+                "recent_notifications": self.state_manager.recent_notifications,
+            }
+            self.wfile.write(json.dumps(payload).encode("utf-8"))
+            self.close_connection = True
+            return
+
         # Serve static assets from DASHBOARD_DIR
         return super().do_GET()
 

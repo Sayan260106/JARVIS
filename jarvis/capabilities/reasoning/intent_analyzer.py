@@ -137,6 +137,68 @@ class IntentAnalyzer:
                     confirmation_preview=preview,
                 )
 
+        # 2.5 Check for Phase 17 Proactive Intents (Scheduled Tasks, Folder Watchers, Process Watchers)
+        sched_match = re.search(r"^(?:every\s+(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday|day|weekday|morning|evening|\d+\s*(?:minute|min|hour|hr|sec|second)s?)|schedule\s+)", lower_q)
+        if sched_match or (lower_q.startswith("every ") and any(w in lower_q for w in ["check", "run", "do", "remind", "scan"])):
+            if "," in q:
+                parts = q.split(",", 1)
+                expr, objective = parts[0].strip(), parts[1].strip()
+            else:
+                expr = "Every Monday"
+                objective = q
+            return UserIntent(
+                raw_query=q,
+                intent_type=IntentType.READ_QUERY,
+                permission_level=PermissionLevel.LEVEL_0_READ,
+                target_tool="schedule_task",
+                parameters={"expression": expr, "objective": objective, "title": objective[:40]},
+            )
+
+        if "watch" in lower_q and any(w in lower_q for w in ["folder", "downloads", "directory"]):
+            folder = "Downloads"
+            pattern = "*.pdf"
+            if "pdf" in lower_q: pattern = "*.pdf"
+            elif "zip" in lower_q: pattern = "*.zip"
+            elif "csv" in lower_q: pattern = "*.csv"
+            elif any(img in lower_q for img in ["image", "photo", "png", "jpg"]): pattern = "*.png"
+            elif "doc" in lower_q: pattern = "*.docx"
+
+            return UserIntent(
+                raw_query=q,
+                intent_type=IntentType.READ_QUERY,
+                permission_level=PermissionLevel.LEVEL_0_READ,
+                target_tool="watch_folder",
+                parameters={"folder_path": folder, "file_pattern": pattern, "target_objective": f"Process new {pattern} in {folder}"},
+            )
+
+        if any(w in lower_q for w in ["tell me when", "notify me when", "alert me when"]) or ("watch" in lower_q and "process" in lower_q):
+            proc_pattern = "GPU training"
+            if "gpu" in lower_q or "train" in lower_q:
+                proc_pattern = "*train*"
+            elif "python" in lower_q:
+                proc_pattern = "python.exe"
+            else:
+                m = re.search(r"(?:when|watch\s+process)\s+my?\s*([a-zA-Z0-9_\-\.]+)", lower_q)
+                if m:
+                    proc_pattern = m.group(1)
+
+            return UserIntent(
+                raw_query=q,
+                intent_type=IntentType.READ_QUERY,
+                permission_level=PermissionLevel.LEVEL_0_READ,
+                target_tool="watch_process",
+                parameters={"process_name": proc_pattern, "target_objective": f"Notify user when {proc_pattern} finishes"},
+            )
+
+        if any(w in lower_q for w in ["list scheduled", "list proactive", "list active monitors", "show monitors", "active monitors"]):
+            return UserIntent(
+                raw_query=q,
+                intent_type=IntentType.READ_QUERY,
+                permission_level=PermissionLevel.LEVEL_0_READ,
+                target_tool="list_proactive_rules",
+                parameters={},
+            )
+
         # 3. Check for Complex Workflows / Goals (e.g. presentation prep, organize downloads)
         from jarvis.capabilities.goal_planner import GoalPlanner
         if GoalPlanner.is_directory_organize_goal(q):

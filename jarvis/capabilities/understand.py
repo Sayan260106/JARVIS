@@ -268,6 +268,63 @@ class DefaultUnderstandCapability(UnderstandCapability):
                 is_ambiguous=False,
             )
 
+        # 0.99 Phase 17 Proactive Workflows (Scheduled Tasks, Environment Monitoring, Process Alerts)
+        if re.search(r"^(?:every\s+(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday|day|weekday|morning|evening|\d+\s*(?:minute|min|hour|hr)s?)|schedule\s+)", lower):
+            parts = cleaned.split(",", 1) if "," in cleaned else [cleaned[:12], cleaned]
+            sched_expr = parts[0].strip()
+            sched_obj = parts[1].strip() if len(parts) > 1 else cleaned
+            return TaskObjective(
+                raw_input=cleaned,
+                intent=IntentCategory.TASK_AUTOMATION,
+                description=f"Schedule proactive task: {sched_obj} ({sched_expr})",
+                target_criteria=f"Task '{sched_obj}' scheduled with recurrence '{sched_expr}'.",
+                context=context,
+                sub_goals=[f"Register schedule '{sched_expr}'", f"Arm proactive workflow '{sched_obj}'"],
+                extracted_entities={
+                    "action": "schedule_task",
+                    "expression": sched_expr,
+                    "objective": sched_obj,
+                },
+                is_ambiguous=False,
+            )
+
+        if "watch" in lower and any(w in lower for w in ["folder", "downloads", "directory"]):
+            target_folder = "Downloads"
+            pattern = "*.pdf"
+            if "pdf" in lower: pattern = "*.pdf"
+            elif "zip" in lower: pattern = "*.zip"
+            elif "csv" in lower: pattern = "*.csv"
+            return TaskObjective(
+                raw_input=cleaned,
+                intent=IntentCategory.TASK_AUTOMATION,
+                description=f"Watch folder '{target_folder}' for '{pattern}' files and trigger processing.",
+                target_criteria=f"Environment watcher activated on '{target_folder}' for '{pattern}'.",
+                context=context,
+                sub_goals=[f"Initialize FolderWatcher on '{target_folder}'", f"Filter on '{pattern}'", "Arm autonomous processing pipeline"],
+                extracted_entities={
+                    "action": "watch_folder",
+                    "folder": target_folder,
+                    "pattern": pattern,
+                },
+                is_ambiguous=False,
+            )
+
+        if any(w in lower for w in ["tell me when", "notify me when", "alert me when"]) or ("watch" in lower and "process" in lower):
+            proc_target = "*train*" if ("gpu" in lower or "train" in lower) else "python.exe"
+            return TaskObjective(
+                raw_input=cleaned,
+                intent=IntentCategory.TASK_AUTOMATION,
+                description=f"Monitor process '{proc_target}' and notify user upon completion.",
+                target_criteria=f"ProcessWatcher active for '{proc_target}', completion alert armed.",
+                context=context,
+                sub_goals=[f"Attach ProcessWatcher to '{proc_target}'", "Detect process exit", "Deliver multi-channel notification"],
+                extracted_entities={
+                    "action": "watch_process",
+                    "process_name": proc_target,
+                },
+                is_ambiguous=False,
+            )
+
         # 1. Compound multi-step task detection (e.g. "Open Notepad, type Hello, save it as test.txt")
         compound_match = self._parse_compound_editor_task(cleaned)
 
