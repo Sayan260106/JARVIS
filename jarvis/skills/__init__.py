@@ -58,7 +58,11 @@ from jarvis.skills.coding import (
     CodingAnalyzeCodeSkill,
     CodingFixBugSkill,
     CodingRunTestsSkill,
+    CodingFixFailingTestSkill,
+    CodingInspectRepoSkill,
+    CodingPrepareCommitSkill,
 )
+
 from jarvis.skills.system import (
     SystemGetMetricsSkill,
     SystemControlWindowSkill,
@@ -119,6 +123,10 @@ def get_default_skill_registry(tool_registry=None) -> SkillRegistry:
     registry.register(CodingAnalyzeCodeSkill(tool_registry))
     registry.register(CodingFixBugSkill(tool_registry))
     registry.register(CodingRunTestsSkill(tool_registry))
+    registry.register(CodingFixFailingTestSkill(tool_registry))
+    registry.register(CodingInspectRepoSkill(tool_registry))
+    registry.register(CodingPrepareCommitSkill(tool_registry))
+
 
     # 8. System
     registry.register(SystemGetMetricsSkill(tool_registry))

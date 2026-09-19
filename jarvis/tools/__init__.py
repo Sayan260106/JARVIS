@@ -138,6 +138,13 @@ from jarvis.tools.research_tools import (
     DeepResearchTool,
     CompareSourcesTool,
 )
+from jarvis.tools.coding_tools import (
+    CodingAgentTool,
+    GitInspectTool,
+    GitCommitPrepTool,
+    GitPushTool,
+)
+
 
 
 
@@ -264,7 +271,13 @@ def get_default_registry() -> ToolRegistry:
     # Phase 12 Research Agent Tools
     registry.register(DeepResearchTool())
     registry.register(CompareSourcesTool())
+    # Phase 13 Coding Agent Tools
+    registry.register(CodingAgentTool())
+    registry.register(GitInspectTool())
+    registry.register(GitCommitPrepTool())
+    registry.register(GitPushTool())
     return registry
+
 
 
 
@@ -381,6 +394,11 @@ __all__ = [
     "ResolveContextualPromptTool",
     "DeepResearchTool",
     "CompareSourcesTool",
+    "CodingAgentTool",
+    "GitInspectTool",
+    "GitCommitPrepTool",
+    "GitPushTool",
     "get_default_registry",
 ]
+
 

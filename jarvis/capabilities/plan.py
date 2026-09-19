@@ -75,7 +75,45 @@ class DefaultPlanCapability(PlanCapability):
             steps.append(s1)
             return ExecutionPlan.create(objective=objective, steps=steps)
 
+        # 0.78 Autonomous Coding Agent Planning (Phase 13)
+        if entities.get("action") == "fix_failing_test":
+            test_path = entities.get("test_path") or "tests"
+            proj = entities.get("project") or "workspace"
+            s1 = PlanStep.create(
+                description=f"Launch/focus Visual Studio Code workspace for '{proj}'",
+                subsystem=SubsystemType.SYSTEM,
+                tool_name="open_application",
+                arguments={"app_name": "code"},
+                expected_outcome=f"VS Code active for project '{proj}'.",
+                depends_on=[],
+            )
+            s2 = PlanStep.create(
+                description=f"Inspect repository state, branch, and working tree for '{proj}'",
+                subsystem=SubsystemType.SYSTEM,
+                tool_name="git_inspect",
+                arguments={"repo_path": "."},
+                expected_outcome=f"Repository awareness captured for '{proj}'.",
+                depends_on=[s1.step_id],
+            )
+            s3 = PlanStep.create(
+                description=f"Execute autonomous 10-stage test-diagnosis-and-repair loop on '{test_path}'",
+                subsystem=SubsystemType.SYSTEM,
+                tool_name="run_coding_agent",
+                arguments={
+                    "test_path": test_path,
+                    "target_file": entities.get("target_file"),
+                    "target_snippet": entities.get("target_snippet"),
+                    "replacement_snippet": entities.get("replacement_snippet"),
+                    "open_editor": False,
+                },
+                expected_outcome="Failing tests diagnosed, code modified safely with AST validation, verified passing, and commit prepared.",
+                depends_on=[s2.step_id],
+            )
+            steps.extend([s1, s2, s3])
+            return ExecutionPlan.create(objective=objective, steps=steps)
+
         # 0.8 Contextual Action Plans (Phase 10 Context Awareness)
+
 
         if entities.get("action") == "summarize_document":
             file_path = entities.get("file_path", "")

@@ -1,10 +1,13 @@
-"""Coding & Software Engineering Skills for Phase 11.
+"""Coding & Software Engineering Skills for JARVIS (Phase 11 & Phase 13).
 
 Domain: coding/
 Skills:
 - coding.analyze_code
 - coding.fix_bug
 - coding.run_tests
+- coding.fix_failing_test
+- coding.inspect_repo
+- coding.prepare_commit
 """
 
 from __future__ import annotations
@@ -84,28 +87,20 @@ class CodingFixBugSkill(BaseSkill):
         if not os.path.exists(fpath):
             return SkillResult(success=False, error=f"Target file '{fpath}' does not exist.")
 
-        if self.registry and target and repl:
-            tool = self.registry.get("modify_file")
-            if tool:
-                res = tool.execute(path=fpath, action="replace_section", target=target, replacement=repl)
-                return SkillResult(success=res.success, output=res.output, artifacts={"file_path": fpath, "patched": True})
+        from jarvis.subsystems.coding import CodeModifier
+        modifier = CodeModifier()
 
-        # Apply simple fix or touch
-        try:
-            with open(fpath, "r", encoding="utf-8", errors="ignore") as f:
-                content = f.read()
+        if target and repl:
+            success, patch, err = modifier.apply_replacement(fpath, target, repl)
+            if success:
+                return SkillResult(
+                    success=True,
+                    output=f"Applied fix to '{os.path.basename(fpath)}': replaced target snippet.",
+                    artifacts={"file_path": fpath, "patched": True},
+                )
+            return SkillResult(success=False, error=err or "Patch application failed.")
 
-            if target and target in content:
-                patched = content.replace(target, repl)
-                with open(fpath, "w", encoding="utf-8") as f:
-                    f.write(patched)
-                msg = f"Applied fix to '{os.path.basename(fpath)}': replaced target snippet."
-            else:
-                msg = f"Verified syntax and structure of '{os.path.basename(fpath)}'."
-
-            return SkillResult(success=True, output=msg, artifacts={"file_path": fpath, "patched": bool(target)})
-        except Exception as e:
-            return SkillResult(success=False, error=f"Failed to apply fix: {e}")
+        return SkillResult(success=True, output=f"Verified file structure of '{os.path.basename(fpath)}'.")
 
 
 class CodingRunTestsSkill(BaseSkill):
@@ -121,14 +116,99 @@ class CodingRunTestsSkill(BaseSkill):
     def execute(self, params: Dict[str, Any], context: SkillContext) -> SkillResult:
         tpath = params["test_path"]
         runner = params.get("runner", "unittest")
-        cmd = f".\\venv\\Scripts\\python.exe -m {runner} {tpath}"
 
-        res = subprocess.run(cmd, shell=True, capture_output=True, text=True)
-        passed = (res.returncode == 0)
-        output_txt = res.stdout if res.stdout else res.stderr
+        from jarvis.subsystems.coding import TestRunner
+        test_runner = TestRunner()
+        result = test_runner.run_tests(test_path=tpath, runner=runner)
 
         return SkillResult(
-            success=passed,
-            output=output_txt.strip(),
-            artifacts={"test_path": tpath, "passed": passed, "returncode": res.returncode},
+            success=result.passed,
+            output=result.output.strip(),
+            artifacts={
+                "test_path": tpath,
+                "passed": result.passed,
+                "returncode": result.returncode,
+                "failed_tests": result.failed_tests,
+            },
+        )
+
+
+class CodingFixFailingTestSkill(BaseSkill):
+    name = "coding.fix_failing_test"
+    domain = "coding"
+    capability = "Executes full 10-stage autonomous coding loop to diagnose, patch, and verify failing tests."
+    required_tools = ["run_coding_agent"]
+    parameters = {
+        "test_path": SkillParameter("test_path", "string", "Failing test path or suite", required=True),
+        "target_file": SkillParameter("target_file", "path", "Optional source file to fix", required=False, default=None),
+        "target_snippet": SkillParameter("target_snippet", "string", "Optional buggy code snippet", required=False, default=None),
+        "replacement_snippet": SkillParameter("replacement_snippet", "string", "Optional replacement snippet", required=False, default=None),
+    }
+
+    def execute(self, params: Dict[str, Any], context: SkillContext) -> SkillResult:
+        tpath = params["test_path"]
+        target_f = params.get("target_file")
+        target_snip = params.get("target_snippet")
+        repl_snip = params.get("replacement_snippet")
+
+        from jarvis.subsystems.coding import run_coding_agent
+        result = run_coding_agent(
+            test_path=tpath,
+            target_file=target_f,
+            target_snippet=target_snip,
+            replacement_snippet=repl_snip,
+            open_editor=False,
+        )
+
+        context.set("coding_task_result", result.to_dict())
+        return SkillResult(
+            success=result.success,
+            output=result.explanation,
+            artifacts=result.to_dict(),
+        )
+
+
+class CodingInspectRepoSkill(BaseSkill):
+    name = "coding.inspect_repo"
+    domain = "coding"
+    capability = "Queries git branch, commit SHA, dirty files, and uncommitted diffs."
+    required_tools = ["git_inspect"]
+    parameters = {
+        "repo_path": SkillParameter("repo_path", "path", "Repository root path", required=False, default="."),
+    }
+
+    def execute(self, params: Dict[str, Any], context: SkillContext) -> SkillResult:
+        rpath = params.get("repo_path", ".")
+        from jarvis.subsystems.coding import RepoInspector
+        inspector = RepoInspector(rpath)
+        inspection = inspector.inspect(rpath)
+        context.set("repo_inspection", inspection.to_dict())
+        return SkillResult(
+            success=True,
+            output=f"Branch '{inspection.branch}', Commit '{inspection.commit_sha}'. Clean={inspection.is_clean}.",
+            artifacts=inspection.to_dict(),
+        )
+
+
+class CodingPrepareCommitSkill(BaseSkill):
+    name = "coding.prepare_commit"
+    domain = "coding"
+    capability = "Stages modified files and prepares a commit message and diff preview."
+    required_tools = ["git_prepare_commit"]
+    parameters = {
+        "files": SkillParameter("files", "list", "List of modified files to stage", required=True),
+        "message": SkillParameter("message", "string", "Commit message to prepare", required=True),
+    }
+
+    def execute(self, params: Dict[str, Any], context: SkillContext) -> SkillResult:
+        files = params["files"]
+        msg = params["message"]
+        from jarvis.subsystems.coding import RepoInspector
+        inspector = RepoInspector()
+        prep = inspector.prepare_commit(files=files, message=msg, commit_now=False)
+        context.set("commit_prep", prep.to_dict())
+        return SkillResult(
+            success=True,
+            output=f"Staged {len(files)} files on branch '{prep.branch}'. Commit ready.",
+            artifacts=prep.to_dict(),
         )

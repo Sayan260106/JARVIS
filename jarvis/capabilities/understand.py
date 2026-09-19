@@ -221,8 +221,56 @@ class DefaultUnderstandCapability(UnderstandCapability):
                     is_ambiguous=False,
                 )
 
+        # 0.98 Autonomous Coding Agent Pipeline (Phase 13: "Open my JARVIS project and fix the failing test.")
+        coding_match = re.search(
+            r"^(?:please\s+)?open\s+(?:my\s+)?(?:the\s+)?([a-zA-Z0-9_\-\.\s]+?)\s+project\s+and\s+fix\s+(?:the\s+)?failing\s+test(?:s)?(?:\s+(?:in|at)\s+(.+?))?[\.\?!]?$",
+            cleaned,
+            re.IGNORECASE,
+        ) or re.search(
+            r"^(?:please\s+)?fix\s+(?:the\s+)?failing\s+test(?:s)?(?:\s+(?:in|at|for)\s+(.+?))?[\.\?!]?$",
+            cleaned,
+            re.IGNORECASE,
+        )
+        if coding_match:
+            if "project and fix" in cleaned.lower():
+                project_name = coding_match.group(1).strip()
+                test_path = (coding_match.group(2) or "").strip() if coding_match.lastindex >= 2 and coding_match.group(2) else "tests"
+            else:
+                project_name = "JARVIS"
+                test_path = (coding_match.group(1) or "").strip() if coding_match.group(1) else "tests"
+
+            sub_goals = [
+                f"Open Visual Studio Code on project '{project_name}'",
+                "Inspect repository awareness, active branch, and git status",
+                "Analyze AST file dependencies and correlate source to test suites",
+                f"Execute test suite '{test_path}' in terminal and observe failure",
+                "Parse traceback and understand root cause of error",
+                "Apply surgical AST-validated code modification",
+                "Re-run test suite in terminal to verify fix",
+                "Inspect git diff and verify zero unintended regressions",
+                "Prepare commit metadata with staged files and diff summary",
+                "Explain changes (enforce security gate: autonomous push blocked)",
+            ]
+
+            return TaskObjective(
+                raw_input=cleaned,
+                intent=IntentCategory.TASK_AUTOMATION,
+                description=f"Open project '{project_name}', diagnose and fix failing tests in '{test_path}', verify with git diff and prepare commit.",
+                target_criteria=f"Failing tests in '{test_path}' diagnosed, patched with verified syntax, test suite passing, and git commit prepared.",
+                context=context,
+                sub_goals=sub_goals,
+                extracted_entities={
+                    "action": "fix_failing_test",
+                    "project": project_name,
+                    "test_path": test_path,
+                    "open_vscode": True,
+                },
+                is_ambiguous=False,
+            )
+
         # 1. Compound multi-step task detection (e.g. "Open Notepad, type Hello, save it as test.txt")
         compound_match = self._parse_compound_editor_task(cleaned)
+
 
         if compound_match:
             app_name = compound_match["app_name"]
