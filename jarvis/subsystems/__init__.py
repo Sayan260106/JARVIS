@@ -29,3 +29,19 @@ from jarvis.subsystems.recovery import (
     RecoveryResolution,
     get_recovery_engine,
 )
+from jarvis.security import (
+    SecurityVerdict,
+    SecurityProfile,
+    SecurityDecision,
+    AuditEntry,
+    CommandSanitizer,
+    PathGuard,
+    SecretRedactor,
+    CredentialVault,
+    ToolAllowlist,
+    SecurityAuditLogger,
+    SecurityGatekeeper,
+    get_gatekeeper,
+    get_audit_logger,
+)
+

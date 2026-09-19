@@ -19,11 +19,19 @@ class RiskLevel(str, Enum):
 
 
 class PermissionLevel(str, Enum):
-    """The 4-level permission taxonomy for autonomous agent safety."""
-    LEVEL_0_READ = "LEVEL_0_READ"                       # Automatic (read file, search, system info, screen capture)
-    LEVEL_1_REVERSIBLE_WRITE = "LEVEL_1_REVERSIBLE_WRITE" # Reversible write (create folder/file, move file, open app)
-    LEVEL_2_EXTERNAL_ACTION = "LEVEL_2_EXTERNAL_ACTION"   # External actions (email, publish, upload, post, purchase) -> requires confirmation + preview
-    LEVEL_3_DESTRUCTIVE = "LEVEL_3_DESTRUCTIVE"           # Destructive (delete, shutdown, format, admin) -> requires explicit confirmation + impact warning
+    """The 5-level permission taxonomy for autonomous agent safety (Phase 15)."""
+    LEVEL_0_READ = "LEVEL_0_READ"                         # Read (read PDF, search Google, read file) -> Automatic
+    LEVEL_1_NON_DESTRUCTIVE = "LEVEL_1_NON_DESTRUCTIVE"   # Non-destructive actions (open chrome, create notes) -> Automatic
+    LEVEL_2_MODIFY_FILES = "LEVEL_2_MODIFY_FILES"         # Modify user files (modify code, edit file) -> Confirmation
+    LEVEL_3_EXTERNAL_COMM = "LEVEL_3_EXTERNAL_COMM"       # External communication (send email, webhook, git push) -> Confirmation
+    LEVEL_4_DESTRUCTIVE = "LEVEL_4_DESTRUCTIVE"           # Destructive/system actions (delete file, install software, shutdown) -> Confirmation
+    ALWAYS_RESTRICTED = "ALWAYS_RESTRICTED"               # Dangerous arbitrary system operations -> Strictly prohibited
+
+    # Backward compatibility aliases
+    LEVEL_1_REVERSIBLE_WRITE = "LEVEL_1_NON_DESTRUCTIVE"
+    LEVEL_2_EXTERNAL_ACTION = "LEVEL_3_EXTERNAL_COMM"
+    LEVEL_3_DESTRUCTIVE = "LEVEL_4_DESTRUCTIVE"
+
 
 
 @dataclass

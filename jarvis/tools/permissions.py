@@ -24,10 +24,11 @@ class PermissionDecision:
     user_prompt_required: bool = False
     confirmation_preview: Optional[Dict[str, Any]] = None
     custom_prompt: Optional[str] = None
+    verdict: Optional[Any] = None
 
 
 class PermissionSystem:
-    """Evaluates whether a tool request is authorized to execute based on 4-level safety taxonomy."""
+    """Evaluates whether a tool request is authorized to execute based on 5-level safety taxonomy and enterprise gatekeeping."""
 
     def __init__(
         self,
@@ -35,12 +36,29 @@ class PermissionSystem:
         auto_approve_high: bool = False,
         auto_approve_external: bool = False,
         auto_approve_destructive: bool = False,
+        auto_approve_files: bool = False,
+        gatekeeper: Optional[Any] = None,
     ):
         self.approval_callback = approval_callback
         # auto_approve_high sets both external and destructive for backward compatibility
         self.auto_approve_high = auto_approve_high
         self.auto_approve_external = auto_approve_external or auto_approve_high
         self.auto_approve_destructive = auto_approve_destructive or auto_approve_high
+        self.auto_approve_files = auto_approve_files or auto_approve_high
+
+        if gatekeeper is not None:
+            self.gatekeeper = gatekeeper
+        else:
+            from jarvis.security.allowlist import ToolAllowlist
+            from jarvis.security.schemas import SecurityProfile
+            from jarvis.security.gatekeeper import SecurityGatekeeper
+            self.gatekeeper = SecurityGatekeeper(
+                allowlist=ToolAllowlist(SecurityProfile.UNRESTRICTED_ADMIN),
+                approval_callback=self.approval_callback,
+                auto_approve_files=self.auto_approve_files,
+                auto_approve_external=self.auto_approve_external,
+                auto_approve_destructive=self.auto_approve_destructive,
+            )
 
     def _invoke_callback(
         self,
@@ -57,105 +75,23 @@ class PermissionSystem:
             return bool(self.approval_callback(tool, arguments, decision))
         return bool(self.approval_callback(tool, arguments))
 
-    def check_permission(self, tool: BaseTool, arguments: Dict[str, Any]) -> PermissionDecision:
-        """Evaluate permission for the given tool and arguments."""
-        perm_level = tool.effective_permission_level
+    def check_permission(self, tool: BaseTool, arguments: Dict[str, Any], session_id: str = "") -> PermissionDecision:
+        """Evaluate permission for the given tool and arguments via SecurityGatekeeper."""
+        # Synchronize gatekeeper settings
+        self.gatekeeper.approval_callback = self.approval_callback
+        self.gatekeeper.auto_approve_files = self.auto_approve_files
+        self.gatekeeper.auto_approve_external = self.auto_approve_external
+        self.gatekeeper.auto_approve_destructive = self.auto_approve_destructive
 
-        # LEVEL 0 — READ (Automatic)
-        if perm_level == PermissionLevel.LEVEL_0_READ:
-            return PermissionDecision(
-                allowed=True,
-                reason="Level 0 Read operation automatically permitted.",
-                risk_level=tool.risk_level,
-                permission_level=PermissionLevel.LEVEL_0_READ,
-            )
+        sec_decision = self.gatekeeper.evaluate_tool_request(tool, arguments, session_id=session_id)
 
-        # LEVEL 1 — REVERSIBLE WRITE (Usually automatic with audit logging)
-        if perm_level == PermissionLevel.LEVEL_1_REVERSIBLE_WRITE:
-            return PermissionDecision(
-                allowed=True,
-                reason="Level 1 Reversible Write operation permitted with audit logging.",
-                risk_level=tool.risk_level,
-                permission_level=PermissionLevel.LEVEL_1_REVERSIBLE_WRITE,
-            )
-
-        # LEVEL 2 — EXTERNAL ACTION (Require confirmation with parameter preview)
-        if perm_level == PermissionLevel.LEVEL_2_EXTERNAL_ACTION:
-            # Build preview dict
-            preview = getattr(tool, "build_confirmation_preview", None)
-            preview_data = preview(arguments) if callable(preview) else dict(arguments)
-
-            decision = PermissionDecision(
-                allowed=False,
-                reason=f"External action '{tool.name}' requires user confirmation before proceeding.",
-                risk_level=tool.risk_level,
-                permission_level=PermissionLevel.LEVEL_2_EXTERNAL_ACTION,
-                user_prompt_required=True,
-                confirmation_preview=preview_data,
-            )
-
-            if self.auto_approve_external:
-                decision.allowed = True
-                decision.user_prompt_required = False
-                decision.reason = "External action permitted (auto-approve active)."
-                return decision
-
-            if self.approval_callback is not None:
-                approved = self._invoke_callback(tool, arguments, decision)
-                if approved:
-                    decision.allowed = True
-                    decision.user_prompt_required = False
-                    decision.reason = "External action approved by user."
-                else:
-                    decision.allowed = False
-                    decision.user_prompt_required = False
-                    decision.reason = f"External action '{tool.name}' was declined by user."
-                return decision
-
-            return decision
-
-        # LEVEL 3 — DESTRUCTIVE (Require explicit confirmation + warning)
-        if perm_level == PermissionLevel.LEVEL_3_DESTRUCTIVE:
-            # Check for specialized custom warning prompt
-            custom_builder = getattr(tool, "build_destructive_prompt", None)
-            custom_prompt = custom_builder(arguments) if callable(custom_builder) else (
-                f"Destructive action '{tool.name}' is irreversible. Do you want to proceed?"
-            )
-
-            decision = PermissionDecision(
-                allowed=False,
-                reason=f"Destructive action '{tool.name}' requires explicit confirmation.",
-                risk_level=RiskLevel.HIGH,
-                permission_level=PermissionLevel.LEVEL_3_DESTRUCTIVE,
-                user_prompt_required=True,
-                custom_prompt=custom_prompt,
-            )
-
-            if self.auto_approve_destructive:
-                decision.allowed = True
-                decision.user_prompt_required = False
-                decision.reason = "Destructive operation permitted (auto-approve active)."
-                return decision
-
-            if self.approval_callback is not None:
-                approved = self._invoke_callback(tool, arguments, decision)
-                if approved:
-                    decision.allowed = True
-                    decision.user_prompt_required = False
-                    decision.reason = "Destructive operation approved by user."
-                else:
-                    decision.allowed = False
-                    decision.user_prompt_required = False
-                    decision.reason = f"Destructive operation '{tool.name}' was declined by user."
-                return decision
-
-            return decision
-
-        # Fallback
         return PermissionDecision(
-            allowed=False,
-            reason="Unrecognized permission level.",
-            risk_level=RiskLevel.HIGH,
-            permission_level=PermissionLevel.LEVEL_3_DESTRUCTIVE,
-            user_prompt_required=True,
+            allowed=sec_decision.allowed,
+            reason=sec_decision.reason,
+            risk_level=sec_decision.risk_level,
+            permission_level=sec_decision.permission_level,
+            user_prompt_required=sec_decision.user_prompt_required,
+            confirmation_preview=sec_decision.confirmation_preview,
+            custom_prompt=sec_decision.custom_prompt,
+            verdict=sec_decision.verdict,
         )

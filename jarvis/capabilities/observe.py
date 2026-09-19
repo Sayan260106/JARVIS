@@ -7,10 +7,11 @@ from jarvis.capabilities.base import ObserveCapability, VerifyCapability
 from jarvis.core.schemas import PlanStep, Observation, VerificationResult
 from jarvis.tools.base import BaseTool, ToolResult, ToolVerification
 from jarvis.tools import get_default_registry
+from jarvis.security.redactor import redact_text, redact_object
 
 
 class DefaultObserveCapability(ObserveCapability):
-    """Collects runtime telemetry, output streams, and status into an Observation."""
+    """Collects runtime telemetry, output streams, and status into an Observation with secret redaction."""
 
     def observe(self, step: PlanStep, raw_result: Any, duration_ms: float) -> Observation:
         exit_code = 0
@@ -38,6 +39,13 @@ class DefaultObserveCapability(ObserveCapability):
             output_str = f"Exception: {error_str}"
         else:
             output_str = str(raw_result if raw_result is not None else "")
+
+        # Phase 15: Secret Redaction on outputs, errors, and telemetry
+        output_str = redact_text(output_str)
+        if error_str:
+            error_str = redact_text(error_str)
+        if telemetry:
+            telemetry = redact_object(telemetry)
 
         obs = Observation(
             step_id=step.step_id,
