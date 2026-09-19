@@ -95,3 +95,13 @@ class PermissionSystem:
             custom_prompt=sec_decision.custom_prompt,
             verdict=sec_decision.verdict,
         )
+
+    def evaluate(self, tool: Any, arguments: Dict[str, Any], session_id: str = "") -> PermissionDecision:
+        """Convenience evaluation accepting either a BaseTool instance or tool name."""
+        if isinstance(tool, str):
+            from jarvis.tools import get_default_registry
+            tool_obj = get_default_registry().get(tool)
+            if tool_obj is None:
+                return PermissionDecision(allowed=True, reason="Unregistered tool or simulation step")
+            tool = tool_obj
+        return self.check_permission(tool, arguments, session_id=session_id)

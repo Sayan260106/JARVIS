@@ -126,3 +126,71 @@ All agent state transitions rely on strict Pydantic schemas:
 - **Phase 8**: Voice & Audio Interface (TTS, STT, wake-word).
 - **Phase 9**: Native Windows UI & Tray Notification System.
 - **Phase 10**: Autonomous Multi-Step Proactive Assistant & Self-Evaluation.
+- **Phase 11–16**: Memory 2.0, Research Agent, Coding Agent, Autonomous Recovery 2.0, Security & Permissions, Desktop HUD.
+- **Phase 17**: Proactive JARVIS (Schedules, File/Process Watchers, Multi-Channel Notifications).
+- **Phase 18**: Final Autonomous System (Grand Unified Architecture).
+
+---
+
+## 5. Phase 18 — Final Autonomous System Architecture
+
+The pinnacle unified architecture orchestrating ingress, core reasoning, DAG task planning, agent dispatch, tool execution, multi-modal observation, deterministic verification, and bounded self-healing recovery:
+
+```
+                         ┌──────────────────────┐
+                         │       USER           │
+                         │ Voice / Text / UI    │
+                         └──────────┬───────────┘
+                                    ↓
+                         ┌──────────────────────┐
+                         │   JARVIS CORE        │
+                         │ Intent + Context     │
+                         └──────────┬───────────┘
+                                    ↓
+                         ┌──────────────────────┐
+                         │   TASK PLANNER       │
+                         │ DAG / Dependencies   │
+                         └──────────┬───────────┘
+                                    ↓
+                    ┌───────────────┼────────────────┐
+                    ↓               ↓                ↓
+              ┌──────────┐   ┌───────────┐    ┌───────────┐
+              │ Windows  │   │ Browser   │    │ Documents │
+              │ Control  │   │ Agent     │    │ / RAG     │
+              └──────────┘   └───────────┘    └───────────┘
+                    ↓               ↓                ↓
+              ┌────────────────────────────────────────┐
+              │              TOOL SYSTEM               │
+              └───────────────────┬────────────────────┘
+                                  ↓
+                           ┌──────────────┐
+                           │  OBSERVER    │
+                           │ Screen/DOM/  │
+                           │ FS/Process   │
+                           └──────┬───────┘
+                                  ↓
+                           ┌──────────────┐
+                           │  VERIFIER    │
+                           └──────┬───────┘
+                                  ↓
+                          PASS ───┴─── FAIL
+                           ↓            ↓
+                         NEXT       RECOVERY
+                                      ↓
+                                    REPLAN
+```
+
+### 5.1 System Layer Specifications
+
+1. **User Ingress**: Unified input channels via Voice (`VoiceInterface`), Text (`CLI`), Native Desktop GUI (`JarvisDesktopApp`), Web HUD (`JarvisDashboardServer`), and Background Triggers (`ProactiveEngine`).
+2. **JARVIS Core**: Semantic Intent Classification (`IntentAnalyzer`) + Environmental Context (`ContextCollector`, `ContextResolver`, Active Window, Selection, Deictic References) + Memory & Preferences.
+3. **Task Planner (DAG / Dependencies)**: Dynamic decomposition of complex objectives into topological dependency graphs (`AutonomousTaskNode`), enforcing prerequisite satisfaction.
+4. **Specialized Agent Subsystems**:
+   - **Windows Control**: Desktop automation, Win32 API, processes, files, mouse/keyboard.
+   - **Browser Agent**: Playwright headless/headful, DOM extraction, session detection, downloads.
+   - **Documents / RAG**: PDF/DOCX/PPTX parsing, vector chunking, semantic retrieval, citations.
+   - **Coding & Research Agents**: AST code repair, git management, multi-source cross-checking.
+5. **Tool System**: Central 119+ tool registry with 4-level deterministic permission policy (Level 0 Read to Level 4 Destructive).
+6. **Observer Subsystem**: Multi-modal telemetry collection across Screen (OCR/Grounding), DOM (Page states), File System (Diffs/Sizes), and Processes (PIDs/Exit codes).
+7. **Deterministic Verifier**: Ground-truth evidence verification producing binary PASS / FAIL decisions with audit telemetry.
+8. **Closed-Loop Recovery & Replan**: On FAIL, diagnoses error categories, applies automated remediation (e.g. freeing ports, repairing paths, adapting arguments), replans DAG, and resumes execution (bounded to 3 attempts).

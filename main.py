@@ -145,6 +145,7 @@ def interactive_menu():
     print("  [4] Autonomous Agent CLI      (Continuous Agent Loop)")
     print("  [5] Voice Interface           (Interactive Audio Console)")
     print("  [6] System Diagnostics        (Health & Connectivity Check)")
+    print("  [7] Master Autonomous System  (Grand Unified Loop: Core -> DAG -> Agents -> Verifier)")
     print("  [Q] Exit")
 
     choice = input("\nJARVIS > ").strip().lower()
@@ -161,6 +162,8 @@ def interactive_menu():
         launch_voice()
     elif choice in ("6", "diag", "diagnostics"):
         run_diagnostics()
+    elif choice in ("7", "autonomous", "auto"):
+        launch_autonomous()
     elif choice in ("q", "quit", "exit"):
         print("Standing down. Goodbye.")
         sys.exit(0)
@@ -223,13 +226,62 @@ def launch_voice(mode: str = "interactive", model: str = "qwen2.5:3b"):
         run_interactive(engine)
 
 
+def launch_autonomous(objective: Optional[str] = None):
+    """Launches the Grand Unified Master Autonomous System Loop."""
+    from jarvis.core.autonomous_system import AutonomousSystem
+
+    print("\n" + "=" * 64)
+    print("  JARVIS MASTER AUTONOMOUS SYSTEM — PHASE 18 UNIFIED LOOP")
+    print("  Core -> DAG Planner -> Agent Subsystems -> Tool System ->")
+    print("  Observer (Screen/DOM/FS/Proc) -> Verifier -> Pass/Recovery")
+    print("=" * 64 + "\n")
+
+    if not objective:
+        print("Enter high-level user objective (e.g. 'Solve DBMS assignment from Classroom',")
+        print("'Prepare presentation for Orca-X', or 'Watch Downloads folder for PDFs'):")
+        try:
+            objective = input("\nAutonomous Objective > ").strip()
+        except (KeyboardInterrupt, EOFError):
+            print("\nAborted.")
+            return
+
+    if not objective:
+        objective = "Prepare presentation for Orca-X"
+        print(f"No objective entered. Defaulting to: '{objective}'")
+
+    print(f"\n[AUTONOMOUS SYSTEM] Initiating grand unified loop for: '{objective}'...")
+    auto_sys = AutonomousSystem.get_instance()
+
+    def on_progress(node):
+        print(f"  [PASS] Node '{node.name}' ({node.target_agent.value}) verified successfully.")
+
+    report = auto_sys.process_objective(objective, on_node_progress=on_progress)
+
+    print("\n" + "─" * 64)
+    print(f"EXECUTION REPORT: Task #{report.task_id} [{report.status}]")
+    print(f"  Duration           : {report.duration_seconds:.2f}s")
+    print(f"  Steps Completed    : {report.nodes_completed}/{report.total_nodes}")
+    print(f"  Recovery Cycles    : {report.recovery_cycles}")
+    print("─" * 64)
+    for res in report.step_results:
+        status_icon = "[OK]" if res["passed"] else "[FAIL]"
+        print(f"  {status_icon} Node   : {res['node_name']}")
+        print(f"       Agent  : {res['agent']}")
+        print(f"       Tool   : {res['tool_name']}")
+        print(f"       Verdict: {res['verdict_reason']}")
+        if res.get("observations"):
+            obs = res["observations"]
+            print(f"       Evidence: duration={obs.get('duration_ms', 0):.1f}ms, error={obs.get('error')}")
+    print("=" * 64)
+
+
 def main():
     parser = argparse.ArgumentParser(description="JARVIS Autonomous AI Assistant")
     parser.add_argument(
         "--mode",
-        choices=["desktop", "gui", "tui", "web", "cli", "voice", "diagnostics", "menu"],
+        choices=["desktop", "gui", "tui", "web", "cli", "voice", "diagnostics", "autonomous", "menu"],
         default=None,
-        help="Interface mode to run: desktop (default), tui, web, cli, voice, or diagnostics",
+        help="Interface mode to run: desktop (default), tui, web, cli, voice, diagnostics, or autonomous",
     )
     parser.add_argument(
         "--desktop", "--gui", action="store_true", help="Launch JARVIS Native Desktop HUD window directly"
@@ -250,6 +302,12 @@ def main():
         "--diagnostics", action="store_true", help="Run system diagnostics directly"
     )
     parser.add_argument(
+        "--autonomous", action="store_true", help="Launch Master Autonomous System directly"
+    )
+    parser.add_argument(
+        "--objective", type=str, default=None, help="Objective for Autonomous System mode"
+    )
+    parser.add_argument(
         "--port", type=int, default=8888, help="Port for Web HUD (default: 8888)"
     )
     parser.add_argument(
@@ -266,6 +324,8 @@ def main():
 
     if args.diagnostics or args.mode == "diagnostics":
         run_diagnostics()
+    elif args.autonomous or args.mode == "autonomous":
+        launch_autonomous(objective=args.objective)
     elif args.desktop or args.gui or args.mode in ("desktop", "gui"):
         launch_desktop()
     elif args.tui or args.mode == "tui":

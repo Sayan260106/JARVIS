@@ -23,6 +23,9 @@ def __getattr__(name: str):
     if name == "JarvisAgentLoop":
         from jarvis.core.loop import JarvisAgentLoop
         return JarvisAgentLoop
+    if name == "AutonomousSystem":
+        from jarvis.core.autonomous_system import AutonomousSystem
+        return AutonomousSystem
     raise AttributeError(f"module '{__name__}' has no attribute '{name}'")
 
 
@@ -41,4 +44,5 @@ __all__ = [
     "StepRecord",
     "AgentSessionState",
     "JarvisAgentLoop",
+    "AutonomousSystem",
 ]
