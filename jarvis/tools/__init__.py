@@ -134,6 +134,11 @@ from jarvis.tools.context_tools import (
     GetSelectedTextTool,
     ResolveContextualPromptTool,
 )
+from jarvis.tools.research_tools import (
+    DeepResearchTool,
+    CompareSourcesTool,
+)
+
 
 
 def get_default_registry() -> ToolRegistry:
@@ -256,7 +261,11 @@ def get_default_registry() -> ToolRegistry:
     registry.register(GetActiveDocumentTool())
     registry.register(GetSelectedTextTool())
     registry.register(ResolveContextualPromptTool())
+    # Phase 12 Research Agent Tools
+    registry.register(DeepResearchTool())
+    registry.register(CompareSourcesTool())
     return registry
+
 
 
 __all__ = [
@@ -370,5 +379,8 @@ __all__ = [
     "GetActiveDocumentTool",
     "GetSelectedTextTool",
     "ResolveContextualPromptTool",
+    "DeepResearchTool",
+    "CompareSourcesTool",
     "get_default_registry",
 ]
+

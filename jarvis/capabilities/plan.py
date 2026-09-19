@@ -61,7 +61,22 @@ class DefaultPlanCapability(PlanCapability):
             )
             return ExecutionPlan.create(objective=objective, steps=steps)
 
+        # 0.75 Deep Research Agent Planning (Phase 12)
+        if entities.get("action") == "deep_research" or objective.intent == IntentCategory.RESEARCH:
+            topic = entities.get("topic") or objective.raw_input
+            s1 = PlanStep.create(
+                description=f"Conduct multi-source deep research, cross-check evidence, and compile cited report on '{topic}'",
+                subsystem=SubsystemType.WEB,
+                tool_name="deep_research",
+                arguments={"topic": topic},
+                expected_outcome=f"Comprehensive cited research report on '{topic}' generated and saved locally.",
+                depends_on=[],
+            )
+            steps.append(s1)
+            return ExecutionPlan.create(objective=objective, steps=steps)
+
         # 0.8 Contextual Action Plans (Phase 10 Context Awareness)
+
         if entities.get("action") == "summarize_document":
             file_path = entities.get("file_path", "")
             file_name = entities.get("file_name", "document")

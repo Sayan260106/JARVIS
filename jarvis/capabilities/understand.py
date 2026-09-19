@@ -183,8 +183,47 @@ class DefaultUnderstandCapability(UnderstandCapability):
                     is_ambiguous=False,
                 )
 
+        # 0.95 Deep Research Agent Pipeline (Phase 12: "Research the latest developments in X and make me a report")
+        research_match = re.search(
+            r"^(?:please\s+)?research(?:\s+the)?(?:\s+latest)?(?:\s+developments)?(?:\s+in)?\s+(.+?)(?:\s+and\s+make(?:\s+me)?\s+a\s+report.*)?$",
+            cleaned,
+            re.IGNORECASE,
+        ) or re.search(
+            r"^(?:please\s+)?(?:do(?:\s+some)?\s+research\s+(?:on|into|about)|investigate|prepare\s+a\s+research\s+report\s+(?:on|about))\s+(.+?)(?:\s+and\s+make(?:\s+me)?\s+a\s+report.*)?$",
+            cleaned,
+            re.IGNORECASE,
+        )
+        if research_match:
+            raw_topic = research_match.group(1).strip()
+            topic = re.sub(r"\s+and\s+make(?:\s+me)?\s+a\s+report.*$", "", raw_topic, flags=re.IGNORECASE).strip(".?! ")
+            if topic:
+                sub_goals = [
+                    f"Formulate research plan and decompose '{topic}' into targeted sub-queries",
+                    f"Search web and harvest multiple independent sources",
+                    f"Open web pages and extract body text and evidence",
+                    f"Extract atomic claims and benchmarks across sources",
+                    f"Cross-check claims and identify conflicting information or divergences",
+                    f"Synthesize comprehensive report with citations and bibliography",
+                    f"Save generated research report locally to reports directory",
+                ]
+                return TaskObjective(
+                    raw_input=cleaned,
+                    intent=IntentCategory.RESEARCH,
+                    description=f"Conduct deep research on '{topic}' and generate cited report.",
+                    target_criteria=f"Autonomous research on '{topic}' completed across multiple sources, claims cross-checked, conflicts detected, and cited report saved locally.",
+                    context=context,
+                    sub_goals=sub_goals,
+                    extracted_entities={
+                        "action": "deep_research",
+                        "topic": topic,
+                        "make_report": True,
+                    },
+                    is_ambiguous=False,
+                )
+
         # 1. Compound multi-step task detection (e.g. "Open Notepad, type Hello, save it as test.txt")
         compound_match = self._parse_compound_editor_task(cleaned)
+
         if compound_match:
             app_name = compound_match["app_name"]
             text_to_type = compound_match["text"]

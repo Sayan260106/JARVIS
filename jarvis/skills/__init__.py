@@ -50,8 +50,10 @@ from jarvis.skills.pdf import (
 from jarvis.skills.research import (
     ResearchTopicSkill,
     ResearchGatherSourcesSkill,
+    ResearchCompareSourcesSkill,
     ResearchSynthesizeReportSkill,
 )
+
 from jarvis.skills.coding import (
     CodingAnalyzeCodeSkill,
     CodingFixBugSkill,
@@ -109,7 +111,9 @@ def get_default_skill_registry(tool_registry=None) -> SkillRegistry:
     # 6. Research
     registry.register(ResearchTopicSkill(tool_registry))
     registry.register(ResearchGatherSourcesSkill(tool_registry))
+    registry.register(ResearchCompareSourcesSkill(tool_registry))
     registry.register(ResearchSynthesizeReportSkill(tool_registry))
+
 
     # 7. Coding
     registry.register(CodingAnalyzeCodeSkill(tool_registry))
