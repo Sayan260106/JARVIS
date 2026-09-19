@@ -18,9 +18,22 @@ class DefaultPlanCapability(PlanCapability):
 
     def __init__(self, registry: Optional[ToolRegistry] = None):
         self.registry = registry
+        from jarvis.skills import get_default_skill_registry, SkillComposer
+        self.skill_registry = get_default_skill_registry(registry)
+        self.composer = SkillComposer(self.skill_registry)
 
     def plan(self, objective: TaskObjective, state: AgentSessionState) -> ExecutionPlan:
         steps: List[PlanStep] = []
+
+        # 0. Check for Composed Skills (Phase 11 Skill System)
+        entities = objective.extracted_entities or {}
+        if "composed_skills" in entities or "skill_chain" in entities:
+            chain = entities.get("composed_skills") or entities.get("skill_chain")
+            return self.composer.compile_to_plan(objective, chain)
+
+        action_name = str(entities.get("action", ""))
+        if "." in action_name and self.skill_registry.get(action_name):
+            return self.composer.compile_to_plan(objective, [(action_name, entities.get("params", {}))])
 
         # 0. Conversational Cancellation / Rollback Directives
         entities = objective.extracted_entities or {}

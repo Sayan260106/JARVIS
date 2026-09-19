@@ -153,6 +153,36 @@ class DefaultUnderstandCapability(UnderstandCapability):
                         is_ambiguous=False,
                     )
 
+        # 0.9 Direct or Composed Skill Invocation (Phase 11 Skill System)
+        from jarvis.skills import get_default_skill_registry
+        skill_reg = get_default_skill_registry()
+        m_direct = re.match(r"^([a-zA-Z0-9_]+)\.([a-zA-Z0-9_]+)(?:\((.*)\))?$", cleaned)
+        if m_direct:
+            skill_name = f"{m_direct.group(1)}.{m_direct.group(2)}".lower()
+            skill_obj = skill_reg.get(skill_name)
+            if skill_obj:
+                raw_args = m_direct.group(3) or ""
+                parsed_args = {}
+                if raw_args:
+                    for part in raw_args.split(","):
+                        if "=" in part:
+                            k, v = part.split("=", 1)
+                            parsed_args[k.strip()] = v.strip().strip("'\"")
+                return TaskObjective(
+                    raw_input=cleaned,
+                    intent=IntentCategory.TASK_AUTOMATION,
+                    description=f"Execute skill '{skill_name}': {skill_obj.capability}",
+                    target_criteria=f"Skill '{skill_name}' executed and verified.",
+                    context=context,
+                    sub_goals=[f"Execute skill '{skill_name}'"],
+                    extracted_entities={
+                        "action": skill_name,
+                        "params": parsed_args,
+                        "composed_skills": [(skill_name, parsed_args)],
+                    },
+                    is_ambiguous=False,
+                )
+
         # 1. Compound multi-step task detection (e.g. "Open Notepad, type Hello, save it as test.txt")
         compound_match = self._parse_compound_editor_task(cleaned)
         if compound_match:
