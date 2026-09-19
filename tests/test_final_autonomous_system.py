@@ -40,7 +40,9 @@ class DummySuccessTool(BaseTool):
         return ToolResult(
             success=True,
             output="Operation completed successfully.",
+            # pyrefly: ignore [unexpected-keyword]
             data={"status": "ok"},
+            # pyrefly: ignore [unexpected-keyword]
             verification=ToolVerification(verified=True, details="Verified success output."),
         )
 
@@ -58,6 +60,7 @@ class DummyFailingTool(BaseTool):
             success=False,
             output=None,
             error="Resource locked: Port 8000 already in use by PID 4412",
+            # pyrefly: ignore [unexpected-keyword]
             verification=ToolVerification(verified=False, details="Port conflict detected."),
         )
 
