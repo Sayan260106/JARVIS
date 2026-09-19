@@ -1,4 +1,4 @@
-"""JARVIS Subsystems: Local Intelligence, Web Intelligence, Computer Control, Research, Coding."""
+"""JARVIS Subsystems: Local Intelligence, Web Intelligence, Computer Control, Research, Coding, Recovery."""
 from jarvis.subsystems.research import (
     ResearchAgent,
     ResearchPlan,
@@ -15,4 +15,17 @@ from jarvis.subsystems.coding import (
     CodeModifier,
     get_coding_agent,
     run_coding_agent,
+)
+from jarvis.subsystems.recovery import (
+    AutonomousRecoveryEngine,
+    FailureDiagnostician,
+    AlternateSelectorEngine,
+    PrerequisiteInjector,
+    ToolFallbackEngine,
+    AlternateNavigationEngine,
+    FailureCategory,
+    FailureDiagnosis,
+    AlternateSelector,
+    RecoveryResolution,
+    get_recovery_engine,
 )

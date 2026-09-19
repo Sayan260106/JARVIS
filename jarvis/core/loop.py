@@ -313,12 +313,39 @@ class JarvisAgentLoop:
                 elif recovery.strategy in (
                     RecoveryStrategy.RETRY_WITH_ADAPTED_ARGS,
                     RecoveryStrategy.SWITCH_TOOL,
+                    RecoveryStrategy.ALTERNATE_SELECTOR,
+                    RecoveryStrategy.STATE_REFRESH,
                 ):
                     if recovery.modified_step:
+                        recovery.modified_step.status = StepStatus.PENDING
                         for idx, s in enumerate(plan.steps):
                             if s.step_id == step.step_id:
                                 plan.steps[idx] = recovery.modified_step
                                 break
+                    self._save_plan_state(state)
+                    continue
+
+                elif recovery.strategy in (
+                    RecoveryStrategy.PREREQUISITE_INJECTION,
+                    RecoveryStrategy.ALTERNATE_NAVIGATION,
+                ):
+                    # Splice injected prerequisite steps ahead of the failing step
+                    step_idx = -1
+                    for idx, s in enumerate(plan.steps):
+                        if s.step_id == step.step_id:
+                            step_idx = idx
+                            break
+
+                    if step_idx != -1 and recovery.injected_steps:
+                        # Ensure failing step depends on the injected prerequisite
+                        last_injected = recovery.injected_steps[-1]
+                        step.status = StepStatus.PENDING
+                        if last_injected.step_id not in step.depends_on:
+                            step.depends_on.append(last_injected.step_id)
+
+                        # Insert injected steps before the failing step
+                        plan.steps[step_idx:step_idx] = recovery.injected_steps
+
                     self._save_plan_state(state)
                     continue
 
@@ -327,6 +354,7 @@ class JarvisAgentLoop:
                     state.plan = new_plan
                     self._save_plan_state(state)
                     continue
+
 
         # Post-loop completion evaluation
         if state.phase == LoopPhase.CANCELLED:

@@ -1,19 +1,29 @@
-"""5. RECOVER Capability — 'If it didn't work, what should I try next?'"""
+"""5. RECOVER Capability — Autonomous Recovery 2.0 (Phase 14).
+
+Diagnoses failures, asks 'Why did it fail?', and selects intelligent recovery paths:
+prerequisite injection, alternate selectors, alternate tools, navigation, and state refresh.
+"""
+
+from __future__ import annotations
+from typing import Optional
 
 from jarvis.capabilities.base import RecoverCapability
 from jarvis.core.schemas import (
-    PlanStep,
     Observation,
-    VerificationResult,
+    PlanStep,
     RecoveryAction,
     RecoveryStrategy,
-    StepStatus,
+    VerificationResult,
 )
 from jarvis.core.state import AgentSessionState
+from jarvis.subsystems.recovery import AutonomousRecoveryEngine, get_recovery_engine
 
 
 class DefaultRecoverCapability(RecoverCapability):
     """Diagnoses failures and formulates adaptive recovery strategies obeying Rule 3 (bounded loops)."""
+
+    def __init__(self, engine: Optional[AutonomousRecoveryEngine] = None):
+        self.engine = engine or get_recovery_engine()
 
     def recover(
         self,
@@ -22,41 +32,10 @@ class DefaultRecoverCapability(RecoverCapability):
         verification: VerificationResult,
         state: AgentSessionState,
     ) -> RecoveryAction:
-        step.retry_count += 1
-        step.status = StepStatus.FAILED
-
-        # Rule 3: Bounded recovery loops. Never exceed max retries.
-        if step.retry_count >= step.max_retries:
-            return RecoveryAction(
-                strategy=RecoveryStrategy.ESCALATE_TO_USER,
-                explanation=f"Step '{step.description}' has failed {step.retry_count} times. Maximum retry ceiling reached.",
-                user_prompt=f"Action failed after {step.retry_count} attempts. Reason: {verification.reason}. How would you like to proceed?",
-            )
-
-        # Strategy 1: Attempt self-correction / parameter adaptation on first retry
-        if step.retry_count == 1:
-            step.arguments = {**step.arguments, "_retry_mode": "strict"}
-            step.status = StepStatus.PENDING
-            return RecoveryAction(
-                strategy=RecoveryStrategy.RETRY_WITH_ADAPTED_ARGS,
-                explanation="Attempting retry with adjusted parameters.",
-                modified_step=step,
-            )
-
-        # Strategy 2: Switch to alternate fallback tool if available
-        if step.retry_count == 2:
-            if not step.tool_name.endswith("_fallback"):
-                step.tool_name = f"{step.tool_name}_fallback"
-            step.status = StepStatus.PENDING
-            return RecoveryAction(
-                strategy=RecoveryStrategy.SWITCH_TOOL,
-                explanation="Switching to alternative execution strategy or tool route.",
-                modified_step=step,
-            )
-
-        # Strategy 3: Structural Replan
-        return RecoveryAction(
-            strategy=RecoveryStrategy.REPLAN_GRAPH,
-            explanation="Initiating task re-plan to circumvent failure point.",
+        """Executes the intelligent diagnostic and recovery pipeline."""
+        return self.engine.recover(
+            step=step,
+            observation=observation,
+            verification=verification,
+            state=state,
         )
-

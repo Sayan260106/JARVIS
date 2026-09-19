@@ -47,6 +47,11 @@ class RecoveryStrategy(str, Enum):
     SWITCH_TOOL = "SWITCH_TOOL"
     REPLAN_GRAPH = "REPLAN_GRAPH"
     ESCALATE_TO_USER = "ESCALATE_TO_USER"
+    ALTERNATE_SELECTOR = "ALTERNATE_SELECTOR"
+    ALTERNATE_NAVIGATION = "ALTERNATE_NAVIGATION"
+    STATE_REFRESH = "STATE_REFRESH"
+    PREREQUISITE_INJECTION = "PREREQUISITE_INJECTION"
+
 
 
 @dataclass
@@ -327,5 +332,7 @@ class RecoveryAction:
     explanation: str
     modified_step: Optional[PlanStep] = None
     new_plan: Optional[ExecutionPlan] = None
+    injected_steps: List[PlanStep] = field(default_factory=list)
     user_prompt: Optional[str] = None
+
 
