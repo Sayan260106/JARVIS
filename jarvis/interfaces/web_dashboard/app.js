@@ -24,6 +24,18 @@ function renderState(data) {
   document.getElementById('progress-bar').style.width = `${task.progress_pct}%`;
   document.getElementById('progress-pct').textContent = `${task.progress_pct}% Completed`;
 
+  // 2b. Task Step Checklist
+  const checklistEl = document.getElementById('step-checklist');
+  if (checklistEl && data.task_steps) {
+    checklistEl.innerHTML = '';
+    data.task_steps.forEach(step => {
+      const row = document.createElement('div');
+      row.className = `step-row step-${step.status.toLowerCase()}`;
+      row.innerHTML = `<span class="step-icon">${step.icon}</span><span class="step-label">${escapeHTML(step.label)}</span>`;
+      checklistEl.appendChild(row);
+    });
+  }
+
   // 3. System Telemetry
   const metrics = data.system_metrics;
   document.getElementById('cpu-val').textContent = `${metrics.cpu}%`;
@@ -44,6 +56,14 @@ function renderState(data) {
     stream.appendChild(div);
   });
   stream.scrollTop = stream.scrollHeight;
+
+  // 5. Footer Telemetry
+  const footerEl = document.getElementById('footer-telemetry');
+  if (footerEl) {
+    const tasks = data.active_task_count || 1;
+    const ollamaIcon = metrics.ollama && metrics.ollama.includes('ONLINE') ? '●' : '○';
+    footerEl.textContent = `CPU ${metrics.cpu}% │ RAM ${metrics.ram}% │ Tasks ${tasks} │ Ollama ${ollamaIcon}`;
+  }
 }
 
 function escapeHTML(str) {

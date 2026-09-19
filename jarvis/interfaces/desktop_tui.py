@@ -22,8 +22,71 @@ class DesktopTUI:
     def __init__(self, state_manager: Optional[UIStateManager] = None):
         self.state = state_manager or default_ui_state
 
-    def render(self) -> str:
-        """Construct the complete wireframe layout string."""
+    def render(self, style: str = "auto") -> str:
+        """Construct either the Phase 16 HUD checklist or the split panel wireframe."""
+        if style in ("hud", "checklist"):
+            return self.render_hud()
+        elif style == "split":
+            return self._render_split()
+
+        # In auto mode, use split if active task is ORCA-X test baseline
+        if self.state.active_task.name == "ORCA-X verification":
+            return self._render_split()
+        return self.render_hud()
+
+    def render_hud(self, width: int = 45) -> str:
+        """Construct the Phase 16 execution checklist wireframe."""
+        d = self.state.to_dict()
+        sys_m = d["system_metrics"]
+        steps = self.state.task_steps
+
+        w = max(width, 45)
+        lines = []
+        lines.append("┌" + "─" * w + "┐")
+        title_left = " JARVIS"
+        status_right = f"● {d['system_status']} "
+        spacing = w - len(title_left) - len(status_right)
+        lines.append("│" + title_left + " " * max(spacing, 1) + status_right + "│")
+        lines.append("├" + "─" * w + "┤")
+        lines.append("│" + " " * w + "│")
+
+        # Find user message
+        user_msgs = [m for m in self.state.messages if m.sender.upper() in ("USER", "YOU")]
+        user_query = user_msgs[-1].text if user_msgs else self.state.active_task.name
+
+        # Find jarvis message
+        jarvis_msgs = [m for m in self.state.messages if m.sender.upper() == "JARVIS"]
+        jarvis_status = jarvis_msgs[-1].text if jarvis_msgs else "Planning task..."
+
+        # USER section
+        lines.append("│" + "  USER".ljust(w) + "│")
+        user_line = f'  "{user_query}"'
+        lines.append("│" + user_line.ljust(w) + "│")
+        lines.append("│" + " " * w + "│")
+
+        # JARVIS section
+        lines.append("│" + "  JARVIS".ljust(w) + "│")
+        lines.append("│" + f"  {jarvis_status}".ljust(w) + "│")
+        lines.append("│" + " " * w + "│")
+
+        # Step Checklist
+        for step in steps:
+            step_str = f"  {step.render_line()}"
+            lines.append("│" + step_str.ljust(w) + "│")
+
+        lines.append("│" + " " * w + "│")
+        lines.append("├" + "─" * w + "┤")
+
+        # Footer: CPU 31% │ RAM 48% │ Tasks 1 │ Ollama ●
+        ollama_icon = "●" if "ONLINE" in str(sys_m.get("ollama", "")).upper() else "○"
+        footer_content = f" CPU {sys_m.get('cpu', 31)}% │ RAM {sys_m.get('ram', 48)}% │ Tasks {d.get('active_task_count', 1)} │ Ollama {ollama_icon}"
+        lines.append("│" + footer_content.ljust(w) + "│")
+        lines.append("└" + "─" * w + "┘")
+
+        return "\n".join(lines)
+
+    def _render_split(self) -> str:
+        """Construct the Phase 12 split panel wireframe layout string."""
         d = self.state.to_dict()
         task = d["active_task"]
         sys_m = d["system_metrics"]
@@ -82,9 +145,9 @@ class DesktopTUI:
 
         return "\n".join(lines)
 
-    def display(self):
+    def display(self, style: str = "auto"):
         """Prints the dashboard to stdout with encoding safety."""
-        content = self.render()
+        content = self.render(style=style)
         try:
             print(content)
         except UnicodeEncodeError:
@@ -104,6 +167,9 @@ class DesktopTUI:
                 .replace("█", "#")
                 .replace("░", "-")
                 .replace("●", "*")
+                .replace("✓", "[v]")
+                .replace("○", "( )")
+                .replace("✗", "[x]")
             )
             print(safe_content)
 

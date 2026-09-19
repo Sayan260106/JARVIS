@@ -128,32 +128,41 @@ def interactive_menu():
     print_banner(ollama_ok, models)
 
     print("\nSelect an operational mode to launch:")
-    print("  [1] Desktop TUI Dashboard (Wireframe Terminal HUD)  [Default: Press Enter]")
-    print("  [2] Web HUD Interface     (Browser HUD @ http://127.0.0.1:8888)")
-    print("  [3] Autonomous Agent CLI  (Continuous Agent Loop)")
-    print("  [4] Voice Interface       (Interactive Audio Console)")
-    print("  [5] System Diagnostics    (Health & Connectivity Check)")
+    print("  [1] JARVIS Native Desktop HUD (GUI Window)  [Default: Press Enter]")
+    print("  [2] Desktop TUI Dashboard     (Wireframe Terminal HUD)")
+    print("  [3] Web HUD Interface         (Browser HUD @ http://127.0.0.1:8888)")
+    print("  [4] Autonomous Agent CLI      (Continuous Agent Loop)")
+    print("  [5] Voice Interface           (Interactive Audio Console)")
+    print("  [6] System Diagnostics        (Health & Connectivity Check)")
     print("  [Q] Exit")
 
     choice = input("\nJARVIS > ").strip().lower()
 
-    if choice in ("", "1", "tui"):
+    if choice in ("", "1", "desktop", "gui"):
+        launch_desktop()
+    elif choice in ("2", "tui"):
         launch_tui()
-    elif choice in ("2", "web", "hud"):
+    elif choice in ("3", "web", "hud"):
         launch_web(port=8888, open_browser=True)
-    elif choice in ("3", "cli"):
+    elif choice in ("4", "cli"):
         launch_cli()
-    elif choice in ("4", "voice"):
+    elif choice in ("5", "voice"):
         launch_voice()
-    elif choice in ("5", "diag", "diagnostics"):
+    elif choice in ("6", "diag", "diagnostics"):
         run_diagnostics()
     elif choice in ("q", "quit", "exit"):
         print("Standing down. Goodbye.")
         sys.exit(0)
     else:
-        print("Unknown selection. Defaulting to Desktop TUI...")
+        print("Unknown selection. Defaulting to Native Desktop HUD...")
         time.sleep(1)
-        launch_tui()
+        launch_desktop()
+
+
+def launch_desktop(headless: bool = False):
+    """Launches the JARVIS Native Desktop HUD window."""
+    from jarvis.interfaces.desktop_gui import launch_desktop as _launch_gui
+    _launch_gui(headless=headless)
 
 
 def launch_tui():
@@ -207,9 +216,12 @@ def main():
     parser = argparse.ArgumentParser(description="JARVIS Autonomous AI Assistant")
     parser.add_argument(
         "--mode",
-        choices=["tui", "web", "cli", "voice", "diagnostics", "menu"],
+        choices=["desktop", "gui", "tui", "web", "cli", "voice", "diagnostics", "menu"],
         default=None,
-        help="Interface mode to run: tui (default), web, cli, voice, or diagnostics",
+        help="Interface mode to run: desktop (default), tui, web, cli, voice, or diagnostics",
+    )
+    parser.add_argument(
+        "--desktop", "--gui", action="store_true", help="Launch JARVIS Native Desktop HUD window directly"
     )
     parser.add_argument(
         "--tui", action="store_true", help="Launch Desktop Terminal TUI Dashboard directly"
@@ -243,6 +255,8 @@ def main():
 
     if args.diagnostics or args.mode == "diagnostics":
         run_diagnostics()
+    elif args.desktop or args.gui or args.mode in ("desktop", "gui"):
+        launch_desktop()
     elif args.tui or args.mode == "tui":
         launch_tui()
     elif args.web or args.mode == "web":

@@ -27,7 +27,8 @@ class RepoInspector:
                 cmd,
                 cwd=cwd,
                 capture_output=True,
-                text=True,
+                encoding="utf-8",
+                errors="replace",
                 timeout=15,
             )
             return res.returncode, res.stdout.strip(), res.stderr.strip()

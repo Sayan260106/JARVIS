@@ -384,3 +384,64 @@ body {
   opacity: 0.9;
   transform: translateY(-1px);
 }
+
+/* Step Checklist (Phase 16) */
+.step-checklist {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 14px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(0, 240, 255, 0.15);
+}
+
+.step-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 14px;
+  letter-spacing: 0.5px;
+}
+
+.step-row.step-completed {
+  color: #a7f3d0;
+}
+
+.step-row.step-completed .step-icon {
+  color: var(--green-online);
+  font-weight: bold;
+}
+
+.step-row.step-in_progress {
+  color: var(--cyan-bright);
+  font-weight: 600;
+}
+
+.step-row.step-in_progress .step-icon {
+  color: #fbbf24;
+  animation: pulse-glow 1s infinite alternate;
+}
+
+.step-row.step-pending {
+  color: var(--text-muted);
+}
+
+.step-row.step-pending .step-icon {
+  color: var(--text-muted);
+}
+
+/* HUD Footer Status Bar */
+.hud-footer {
+  margin-top: 12px;
+  padding: 10px 16px;
+  background: rgba(10, 16, 30, 0.7);
+  border: 1px solid rgba(0, 240, 255, 0.25);
+  border-radius: 6px;
+  text-align: center;
+  font-family: 'Orbitron', monospace;
+  font-size: 11px;
+  letter-spacing: 2px;
+  color: var(--cyan-bright);
+}
+
