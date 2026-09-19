@@ -250,6 +250,50 @@ class IntentAnalyzer:
                 requires_research=True,
             )
 
+        # 6.5 Check for Contextual Deictic Queries (Phase 10: "Summarize this", "Fix this", "Explain this")
+        from jarvis.subsystems.context.resolver import ContextResolver
+        from jarvis.subsystems.context.collector import ContextCollector
+        from jarvis.subsystems.context.schemas import DeicticTargetType
+
+        if ContextResolver.contains_deictic_reference(q):
+            collector = ContextCollector.get_instance()
+            sys_snap = collector.collect(refresh=False, capture_selection=True)
+            res_action = ContextResolver.resolve(q, sys_snap)
+            if res_action.confidence >= 0.7:
+                if res_action.target_type == DeicticTargetType.CODE_IN_EDITOR:
+                    return UserIntent(
+                        raw_query=q,
+                        intent_type=IntentType.WRITE_ACTION,
+                        permission_level=PermissionLevel.LEVEL_1_REVERSIBLE_WRITE,
+                        target_tool="modify_file",
+                        parameters={"path": res_action.target_path or res_action.target_name, "resolved_prompt": res_action.resolved_prompt},
+                    )
+                elif res_action.target_type == DeicticTargetType.OPEN_DOCUMENT:
+                    return UserIntent(
+                        raw_query=q,
+                        intent_type=IntentType.READ_QUERY,
+                        permission_level=PermissionLevel.LEVEL_0_READ,
+                        target_tool="document_read",
+                        parameters={"file_path": res_action.target_path or res_action.target_name, "resolved_prompt": res_action.resolved_prompt},
+                    )
+                elif res_action.target_type == DeicticTargetType.SELECTED_TEXT:
+                    is_fix = any(w in lower_q for w in ["fix", "debug", "correct"])
+                    return UserIntent(
+                        raw_query=q,
+                        intent_type=IntentType.WRITE_ACTION if is_fix else IntentType.READ_QUERY,
+                        permission_level=PermissionLevel.LEVEL_1_REVERSIBLE_WRITE if is_fix else PermissionLevel.LEVEL_0_READ,
+                        target_tool="get_selected_text",
+                        parameters={"text": res_action.content_payload, "resolved_prompt": res_action.resolved_prompt},
+                    )
+                elif res_action.target_type == DeicticTargetType.BROWSER_PAGE:
+                    return UserIntent(
+                        raw_query=q,
+                        intent_type=IntentType.READ_QUERY,
+                        permission_level=PermissionLevel.LEVEL_0_READ,
+                        target_tool="browser_get_state",
+                        parameters={"url": res_action.content_payload, "resolved_prompt": res_action.resolved_prompt},
+                    )
+
         # 7. Fast SLM Classification (ModelRole.FAST) for ambiguous queries
         if self.llm_provider is not None:
             fast_intent = self.classify_with_fast_model(q)

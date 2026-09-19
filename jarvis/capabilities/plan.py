@@ -48,6 +48,78 @@ class DefaultPlanCapability(PlanCapability):
             )
             return ExecutionPlan.create(objective=objective, steps=steps)
 
+        # 0.8 Contextual Action Plans (Phase 10 Context Awareness)
+        if entities.get("action") == "summarize_document":
+            file_path = entities.get("file_path", "")
+            file_name = entities.get("file_name", "document")
+            s1 = PlanStep.create(
+                description=f"Read document '{file_name}' from disk",
+                subsystem=SubsystemType.DOCUMENT,
+                tool_name="document_read",
+                arguments={"file_path": file_path or file_name},
+                expected_outcome=f"Document '{file_name}' parsed into structured elements.",
+                depends_on=[],
+            )
+            s2 = PlanStep.create(
+                description=f"Synthesize summary of document '{file_name}'",
+                subsystem=SubsystemType.DOCUMENT,
+                tool_name="document_summarize",
+                arguments={"file_path": file_path or file_name, "summary_type": "executive"},
+                expected_outcome=f"Executive summary of '{file_name}' generated.",
+                depends_on=[s1.step_id],
+            )
+            steps.extend([s1, s2])
+            return ExecutionPlan.create(objective=objective, steps=steps)
+
+        if entities.get("action") == "fix_code":
+            file_path = entities.get("file_path", "")
+            file_name = entities.get("file_name", "code")
+            s1 = PlanStep.create(
+                description=f"Inspect active code in '{file_name}'",
+                subsystem=SubsystemType.SYSTEM,
+                tool_name="get_active_document",
+                arguments={"max_lines": 100},
+                expected_outcome=f"Code context retrieved for '{file_name}'.",
+                depends_on=[],
+            )
+            s2 = PlanStep.create(
+                description=f"Analyze and apply fix to '{file_name}'",
+                subsystem=SubsystemType.SYSTEM,
+                tool_name="modify_file",
+                arguments={"path": file_path or file_name, "action": "replace_section", "target": "error", "replacement": "fix"},
+                expected_outcome=f"Code fix applied to '{file_name}' and verified.",
+                depends_on=[s1.step_id],
+            )
+            steps.extend([s1, s2])
+            return ExecutionPlan.create(objective=objective, steps=steps)
+
+        if entities.get("action") in ("explain_selection", "summarize_selection"):
+            act_label = "Explain" if entities.get("action") == "explain_selection" else "Summarize"
+            steps.append(
+                PlanStep.create(
+                    description=f"{act_label} selected text snippet",
+                    subsystem=SubsystemType.LOCAL,
+                    tool_name="get_selected_text",
+                    arguments={},
+                    expected_outcome="Selected text captured and analyzed.",
+                )
+            )
+            return ExecutionPlan.create(objective=objective, steps=steps)
+
+        if entities.get("action") == "summarize_webpage":
+            url = entities.get("url", "")
+            page_title = entities.get("page_title", "Webpage")
+            s1 = PlanStep.create(
+                description=f"Retrieve content from active browser tab for '{page_title}'",
+                subsystem=SubsystemType.WEB,
+                tool_name="browser_get_state",
+                arguments={},
+                expected_outcome="Browser state and DOM extracted.",
+                depends_on=[],
+            )
+            steps.append(s1)
+            return ExecutionPlan.create(objective=objective, steps=steps)
+
         # 1. Compound editor automation: "Open <App>, type <Text>, save it as <File>"
         if "app_name" in entities and "text" in entities and "file_path" in entities:
             app_name = entities["app_name"]

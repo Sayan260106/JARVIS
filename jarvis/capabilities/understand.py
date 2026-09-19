@@ -48,6 +48,111 @@ class DefaultUnderstandCapability(UnderstandCapability):
                 is_ambiguous=False,
             )
 
+        # 0.7 Context-Aware Deictic Resolution ("Summarize this", "Fix this", "Explain this")
+        from jarvis.subsystems.context.resolver import ContextResolver
+        from jarvis.subsystems.context.collector import ContextCollector
+        from jarvis.subsystems.context.schemas import DeicticTargetType
+
+        if ContextResolver.contains_deictic_reference(cleaned):
+            sys_snapshot = context.get("system_context") if context else None
+            if sys_snapshot is None:
+                collector = ContextCollector.get_instance()
+                sys_snapshot = collector.collect(refresh=False, capture_selection=True)
+
+            resolved_action = ContextResolver.resolve(cleaned, sys_snapshot)
+            if resolved_action.confidence >= 0.7:
+                tt = resolved_action.target_type
+                if tt == DeicticTargetType.OPEN_DOCUMENT:
+                    return TaskObjective(
+                        raw_input=cleaned,
+                        intent=IntentCategory.TASK_AUTOMATION,
+                        description=resolved_action.resolved_prompt,
+                        target_criteria=f"Document '{resolved_action.target_name}' read and summarized.",
+                        context=context,
+                        sub_goals=[
+                            f"Inspect active document '{resolved_action.target_name}'",
+                            "Extract content and parse structure",
+                            "Generate structured summary and key takeaways",
+                        ],
+                        extracted_entities={
+                            "action": "summarize_document",
+                            "target_type": "open_document",
+                            "file_name": resolved_action.target_name,
+                            "file_path": resolved_action.target_path or "",
+                            "content": resolved_action.content_payload,
+                            "resolved_context": resolved_action.to_dict(),
+                        },
+                        is_ambiguous=False,
+                    )
+                elif tt == DeicticTargetType.CODE_IN_EDITOR:
+                    return TaskObjective(
+                        raw_input=cleaned,
+                        intent=IntentCategory.TASK_AUTOMATION,
+                        description=resolved_action.resolved_prompt,
+                        target_criteria=f"Code in '{resolved_action.target_name}' analyzed, bugs diagnosed, and fix verified.",
+                        context=context,
+                        sub_goals=[
+                            f"Inspect active code in '{resolved_action.target_name}'",
+                            "Diagnose syntax errors, logic flaws, or runtime exceptions",
+                            "Apply targeted fix to code",
+                            "Verify changes in file",
+                        ],
+                        extracted_entities={
+                            "action": "fix_code",
+                            "target_type": "code_in_editor",
+                            "file_name": resolved_action.target_name,
+                            "file_path": resolved_action.target_path or "",
+                            "content": resolved_action.content_payload,
+                            "resolved_context": resolved_action.to_dict(),
+                        },
+                        is_ambiguous=False,
+                    )
+                elif tt == DeicticTargetType.SELECTED_TEXT:
+                    is_fix = any(w in lower for w in ["fix", "debug", "correct"])
+                    is_sum = any(w in lower for w in ["summarize", "summary", "tldr"])
+                    action_name = "fix_code" if is_fix else ("summarize_selection" if is_sum else "explain_selection")
+                    intent_cat = IntentCategory.TASK_AUTOMATION if is_fix else IntentCategory.QUERY
+                    return TaskObjective(
+                        raw_input=cleaned,
+                        intent=intent_cat,
+                        description=resolved_action.resolved_prompt,
+                        target_criteria="Selected text analyzed and comprehensive response produced.",
+                        context=context,
+                        sub_goals=[
+                            "Parse highlighted text selection",
+                            "Perform contextual analysis and semantic reasoning",
+                            "Deliver clear, structured answer to user",
+                        ],
+                        extracted_entities={
+                            "action": action_name,
+                            "target_type": "selected_text",
+                            "text": resolved_action.content_payload,
+                            "resolved_context": resolved_action.to_dict(),
+                        },
+                        is_ambiguous=False,
+                    )
+                elif tt == DeicticTargetType.BROWSER_PAGE:
+                    return TaskObjective(
+                        raw_input=cleaned,
+                        intent=IntentCategory.TASK_AUTOMATION,
+                        description=resolved_action.resolved_prompt,
+                        target_criteria=f"Web page '{resolved_action.target_name}' analyzed and summarized.",
+                        context=context,
+                        sub_goals=[
+                            f"Inspect active browser page '{resolved_action.target_name}'",
+                            "Extract webpage contents from active browser session",
+                            "Synthesize comprehensive summary",
+                        ],
+                        extracted_entities={
+                            "action": "summarize_webpage",
+                            "target_type": "browser_page",
+                            "url": resolved_action.content_payload,
+                            "page_title": resolved_action.target_name,
+                            "resolved_context": resolved_action.to_dict(),
+                        },
+                        is_ambiguous=False,
+                    )
+
         # 1. Compound multi-step task detection (e.g. "Open Notepad, type Hello, save it as test.txt")
         compound_match = self._parse_compound_editor_task(cleaned)
         if compound_match:

@@ -449,7 +449,13 @@ class WindowsExecutor:
 
     @classmethod
     def get_clipboard(cls) -> str:
-        """Retrieves text from Windows clipboard."""
+        """Retrieves text from Windows clipboard with 64-bit handle safety."""
+        cls.user32.GetClipboardData.restype = wintypes.HANDLE
+        cls.user32.GetClipboardData.argtypes = [wintypes.UINT]
+        cls.kernel32.GlobalLock.restype = ctypes.c_void_p
+        cls.kernel32.GlobalLock.argtypes = [wintypes.HGLOBAL]
+        cls.kernel32.GlobalUnlock.argtypes = [wintypes.HGLOBAL]
+
         if not cls.user32.OpenClipboard(0):
             return ""
         try:
@@ -468,7 +474,15 @@ class WindowsExecutor:
 
     @classmethod
     def set_clipboard(cls, text: str) -> bool:
-        """Copies text to Windows clipboard."""
+        """Copies text to Windows clipboard with 64-bit handle safety."""
+        cls.kernel32.GlobalAlloc.restype = wintypes.HGLOBAL
+        cls.kernel32.GlobalAlloc.argtypes = [wintypes.UINT, ctypes.c_size_t]
+        cls.kernel32.GlobalLock.restype = ctypes.c_void_p
+        cls.kernel32.GlobalLock.argtypes = [wintypes.HGLOBAL]
+        cls.kernel32.GlobalUnlock.argtypes = [wintypes.HGLOBAL]
+        cls.user32.SetClipboardData.restype = wintypes.HANDLE
+        cls.user32.SetClipboardData.argtypes = [wintypes.UINT, wintypes.HANDLE]
+
         if not cls.user32.OpenClipboard(0):
             return False
         try:

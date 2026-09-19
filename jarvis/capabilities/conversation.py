@@ -103,6 +103,14 @@ class ConversationEngine:
             if mem_context:
                 augmented_history.insert(0, {"role": "system", "content": f"Context from Long-Term Memory:\n{mem_context}"})
 
+            # Retrieve active desktop context snapshot (Phase 10 Context Awareness)
+            try:
+                from jarvis.subsystems.context.collector import ContextCollector
+                snap = ContextCollector.get_instance().collect(refresh=False, capture_selection=False)
+                augmented_history.insert(0, {"role": "system", "content": snap.to_prompt_context()})
+            except Exception:
+                pass
+
             if self.enable_tools and self.tool_executor:
                 turn_result = self.tool_executor.run_turn(query, augmented_history)
                 response = turn_result.final_response

@@ -128,6 +128,12 @@ from jarvis.tools.document_tools import (
     DocumentExamPrepTool,
 )
 from jarvis.tools.model_tools import ModelRouteInspectTool
+from jarvis.tools.context_tools import (
+    GetSystemContextTool,
+    GetActiveDocumentTool,
+    GetSelectedTextTool,
+    ResolveContextualPromptTool,
+)
 
 
 def get_default_registry() -> ToolRegistry:
@@ -245,6 +251,11 @@ def get_default_registry() -> ToolRegistry:
     registry.register(SessionRecallTool())
     registry.register(ManagePreferenceTool())
     registry.register(WorkflowMemoryTool())
+    # Phase 10 Context Awareness Tools
+    registry.register(GetSystemContextTool())
+    registry.register(GetActiveDocumentTool())
+    registry.register(GetSelectedTextTool())
+    registry.register(ResolveContextualPromptTool())
     return registry
 
 
@@ -355,5 +366,9 @@ __all__ = [
     "SearchKnowledgeTool",
     "ManageWorkingMemoryTool",
     "RunComplexTaskTool",
+    "GetSystemContextTool",
+    "GetActiveDocumentTool",
+    "GetSelectedTextTool",
+    "ResolveContextualPromptTool",
     "get_default_registry",
 ]
