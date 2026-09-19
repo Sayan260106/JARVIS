@@ -327,7 +327,7 @@ def main():
         run_diagnostics()
     elif args.autonomous or args.mode == "autonomous":
         launch_autonomous(objective=args.objective)
-    elif args.desktop or args.gui or args.mode in ("desktop", "gui"):
+    elif args.desktop or args.mode in ("desktop", "gui"):
         launch_desktop()
     elif args.tui or args.mode == "tui":
         launch_tui()
